@@ -1,0 +1,25 @@
+id: lgpd-log-001-tostring
+description: Objeto com CPF logado via toString() implícito (só o LLM enxerga).
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Cliente.java: |
+    package com.empresa.pedidos.domain.model;
+
+    public record Cliente(String id, String nome, String cpf, String email) {}
+  app/src/main/java/com/empresa/pedidos/application/usecase/CriarClienteUseCase.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import com.empresa.pedidos.domain.model.Cliente;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+
+    public class CriarClienteUseCase {
+        private static final Logger logger = LoggerFactory.getLogger(CriarClienteUseCase.class);
+
+        public Cliente executar(Cliente novo) {
+            logger.info("Cliente criado: {}", novo);
+            return novo;
+        }
+    }
+expect:
+  LGPD-LOG-001: true

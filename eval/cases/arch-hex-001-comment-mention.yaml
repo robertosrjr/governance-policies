@@ -1,0 +1,14 @@
+id: arch-hex-001-comment-mention
+description: Comentário citando o pacote proibido não é dependência.
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/OrderStatus.java: |
+    package com.empresa.pedidos.domain.model;
+
+    /**
+     * Status do pedido. Não use org.springframework.statemachine aqui (ADR-ARCH-001).
+     */
+    public enum OrderStatus {
+        PENDING, CONFIRMED, SHIPPED
+    }
+expect:
+  ARCH-HEX-001: false

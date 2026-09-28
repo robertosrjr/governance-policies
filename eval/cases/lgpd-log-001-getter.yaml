@@ -1,0 +1,16 @@
+id: lgpd-log-001-getter
+description: E-mail obtido por getter e passado como argumento do log.
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/adapter/in/web/UsuarioController.java: |
+    package com.empresa.pedidos.infrastructure.adapter.in.web;
+
+    public class UsuarioController {
+        private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(UsuarioController.class);
+
+        public void atualizar(Usuario usuario) {
+            log.debug("Atualizando usuário {}", usuario.getEmail());
+        }
+    }
+expect:
+  LGPD-LOG-001: true

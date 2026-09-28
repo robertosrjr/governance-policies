@@ -1,0 +1,23 @@
+id: SEC-OBFUSC-001
+title: Escape Unicode fora de literal em código Java
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-001
+severity: CRITICAL
+mode: enforce
+scope:
+  include: ["**/*.java"]
+description: >-
+  O compilador Java traduz `\uXXXX` antes da análise léxica, inclusive em comentários.
+  Isso permite esconder imports proibidos (`org.springframework`) ou executar código
+  "comentado" (`// \u000a codigo()`), enganando regras textuais e revisores.
+remediation: >-
+  Escreva o caractere diretamente. Escapes Unicode só são aceitos dentro de literais de
+  string ou char.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\\u+[0-9a-fA-F]{4}'
+      strip: '"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)*'''
+      message: Escape Unicode fora de literal (ofuscação de código Java).

@@ -1,0 +1,17 @@
+id: lgpd-log-001-span-attribute
+description: Documento do cliente como atributo de span.
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/adapter/out/client/CustomerValidationAdapter.java: |
+    package com.empresa.pedidos.infrastructure.adapter.out.client;
+
+    import io.opentelemetry.api.trace.Span;
+
+    public class CustomerValidationAdapter {
+        public boolean validar(String customerId, String documento) {
+            Span.current().setAttribute("customer.document", documento);
+            return documento != null && documento.length() == 11;
+        }
+    }
+expect:
+  LGPD-LOG-001: true

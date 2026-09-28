@@ -1,0 +1,17 @@
+id: arch-hex-001-static-import
+description: import static de utilitário Spring no domínio.
+tags:
+- adversarial
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Money.java: |
+    package com.empresa.pedidos.domain.model;
+
+    import static org.springframework.util.Assert.notNull;
+
+    public record Money(long cents, String currency) {
+        public Money {
+            notNull(currency, "currency");
+        }
+    }
+expect:
+  ARCH-HEX-001: true

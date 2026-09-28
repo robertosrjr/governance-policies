@@ -1,0 +1,24 @@
+id: arch-hex-002-uses-port
+description: 'Caso de uso dependendo da porta: conforme.'
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/GetOrderUseCaseImpl.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import com.empresa.pedidos.application.port.out.OrderRepositoryPort;
+    import com.empresa.pedidos.domain.model.Order;
+    import java.util.Optional;
+
+    public class GetOrderUseCaseImpl {
+        private final OrderRepositoryPort repository;
+
+        public GetOrderUseCaseImpl(OrderRepositoryPort repository) {
+            this.repository = repository;
+        }
+
+        public Optional<Order> execute(String orderId) {
+            return repository.findById(orderId);
+        }
+    }
+expect:
+  ARCH-HEX-002: false
+  QUAL-CODE-001: false

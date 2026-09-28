@@ -1,0 +1,13 @@
+id: sec-unicode-001-portuguese-text
+description: Acentos e cedilha são texto normal, não caracteres invisíveis.
+files:
+  app/src/main/java/com/empresa/pedidos/domain/exception/InvalidOrderStateException.java: |
+    package com.empresa.pedidos.domain.exception;
+
+    public class InvalidOrderStateException extends RuntimeException {
+        public InvalidOrderStateException(String de, String para) {
+            super("Transição inválida de " + de + " para " + para + ": ação não permitida");
+        }
+    }
+expect:
+  SEC-UNICODE-001: false

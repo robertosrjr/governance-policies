@@ -1,0 +1,30 @@
+# Modelo de política. Salve como policies/<ID>.yaml (nome do arquivo = id).
+# Schema: policies/schema/policy.schema.json. Depois:
+#   python -m governance validate && python -m governance export && python -m governance eval
+id: AREA-TEMA-001
+title: Frase curta com a regra
+version: 1.0.0
+owner: time-dono
+adr: ADR-AREA-001          # crie o ADR em adrs/ com o porquê
+severity: CRITICAL         # CRITICAL | MAJOR | MINOR
+mode: audit                # comece em audit ou warn; enforce exige casos no eval
+scope:
+  include: ["**/*.java"]
+  exclude: ["**/src/test/**"]
+description: >-
+  O que a regra exige e o que cada camada cobre.
+remediation: >-
+  Como corrigir.
+targets: [pr-review, claude-code]   # + aws-security-agent exige o bloco compliance
+enforcement:
+  deterministic:           # prefira sempre que a regra puder ser expressa assim
+    - type: regex          # aplicada às linhas ADICIONADAS
+      pattern: 'regex'
+      # exclude: 'regex'   # descarta a linha
+      # strip: 'regex'     # remove trechos (ex.: literais) antes de testar
+      message: Mensagem curta do achado.
+  # llm:                   # só para o que regex/ArchUnit não expressam
+  #   reviewer: lgpd       # engine/governance/prompts/<reviewer>.md
+  #   blocking: false      # true exige eval_evidence
+  #   criteria: |
+  #     Critério objetivo, com exemplos do que apontar e do que não apontar.

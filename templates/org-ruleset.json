@@ -1,0 +1,38 @@
+{
+  "_comment": "POST /orgs/{org}/rulesets. Valide os campos contra a API do seu plano do GitHub (required workflows em rulesets de organização). repository_id = id numérico do repositório central; ref = tag de release do bundle.",
+  "name": "governanca-obrigatoria",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []},
+    "repository_name": {"include": ["~ALL"], "exclude": ["PlatEnterpriseGovSecLLMOps"]}
+  },
+  "rules": [
+    {
+      "type": "workflows",
+      "parameters": {
+        "do_not_enforce_on_create": false,
+        "workflows": [
+          {
+            "path": ".github/workflows/governance-required.yml",
+            "repository_id": 0,
+            "ref": "refs/tags/v1.0.0"
+          }
+        ]
+      }
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "require_code_owner_review": true,
+        "dismiss_stale_reviews_on_push": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": false
+      }
+    },
+    {"type": "non_fast_forward"},
+    {"type": "deletion"}
+  ]
+}

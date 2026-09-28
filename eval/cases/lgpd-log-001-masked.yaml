@@ -1,0 +1,20 @@
+id: lgpd-log-001-masked
+description: 'Valores mascarados e só ids técnicos: conforme.'
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/PagamentoService.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+
+    public class PagamentoService {
+        private static final Logger logger = LoggerFactory.getLogger(PagamentoService.class);
+
+        public void pagar(String orderId, String cpf, String email) {
+            logger.info("CPF recebido: {}", PIISanitizer.mask(cpf));
+            logger.info("Pagamento do pedido {} para {}", orderId, maskEmail(email));
+            logger.info("Pedido {} pago", orderId);
+        }
+    }
+expect:
+  LGPD-LOG-001: false

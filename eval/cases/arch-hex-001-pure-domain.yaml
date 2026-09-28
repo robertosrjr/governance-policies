@@ -1,0 +1,22 @@
+id: arch-hex-001-pure-domain
+description: 'Domínio puro: só Java SE.'
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/OrderItem.java: |
+    package com.empresa.pedidos.domain.model;
+
+    import java.math.BigDecimal;
+    import java.util.Objects;
+
+    public record OrderItem(String sku, int quantity, BigDecimal unitPrice) {
+        public OrderItem {
+            Objects.requireNonNull(sku, "sku");
+            if (quantity <= 0) {
+                throw new IllegalArgumentException("quantity deve ser positiva");
+            }
+        }
+    }
+expect:
+  ARCH-HEX-001: false
+  ARCH-HEX-002: false
+  LGPD-LOG-001: false
+  QUAL-CODE-001: false

@@ -1,0 +1,19 @@
+id: arch-hex-001-fqn-annotation
+description: Anotação com nome totalmente qualificado, sem import. Escapava da regra antiga (match em
+  'import X.').
+tags:
+- adversarial
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Pedido.java: |
+    package com.empresa.pedidos.domain.model;
+
+    @org.springframework.stereotype.Component
+    public class Pedido {
+        private final String id;
+
+        public Pedido(String id) {
+            this.id = id;
+        }
+    }
+expect:
+  ARCH-HEX-001: true

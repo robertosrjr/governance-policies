@@ -1,0 +1,35 @@
+id: poc-validation-pr
+description: 'Reprodução do PR de validação do ADR-001 da PoC (PedidoRepositorioAcoplado): várias violações
+  no mesmo arquivo.'
+tags:
+- regression
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/PedidoRepositorioAcoplado.java: |
+    package com.empresa.pedidos.domain.model;
+
+    import com.empresa.pedidos.infrastructure.adapter.in.web.OrderController;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public class PedidoRepositorioAcoplado {
+        private static final Logger logger =
+            LoggerFactory.getLogger(PedidoRepositorioAcoplado.class);
+        private static final String API_KEY = "AIzaFAKEfakeFAKEfakeFAKEfakeFAKEfake123";
+
+        @Autowired
+        private OrderController controller;
+
+        public Object salvar(String cpf, String email, String telefone) {
+            logger.info("Salvando cliente " + cpf + " " + email + " " + telefone);
+            logger.debug("Usando chave " + API_KEY);
+            return null;
+        }
+    }
+expect:
+  ARCH-HEX-001: true
+  ARCH-HEX-002: true
+  LGPD-LOG-001: true
+  SEC-SECRET-001: true

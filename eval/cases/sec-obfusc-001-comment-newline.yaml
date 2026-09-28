@@ -1,0 +1,17 @@
+id: sec-obfusc-001-comment-newline
+description: Escape de quebra de linha em comentário executa código 'comentado'.
+tags:
+- adversarial
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/DescontoUseCase.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    public class DescontoUseCase {
+        public int percentual(boolean vip) {
+            int desconto = 5;
+            // desconto padrão \u000a desconto = 100;
+            return desconto;
+        }
+    }
+expect:
+  SEC-OBFUSC-001: true

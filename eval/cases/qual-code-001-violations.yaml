@@ -1,0 +1,23 @@
+id: qual-code-001-violations
+description: return null, injeção por campo e catch que engole exceção.
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/adapter/out/client/EstoqueClient.java: |
+    package com.empresa.pedidos.infrastructure.adapter.out.client;
+
+    import org.springframework.beans.factory.annotation.Autowired;
+
+    public class EstoqueClient {
+        @Autowired
+        private RestClient restClient;
+
+        public Object consultar(String sku) {
+            try {
+                return restClient.get().uri("/estoque/" + sku).retrieve().body(String.class);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
+expect:
+  QUAL-CODE-001: true

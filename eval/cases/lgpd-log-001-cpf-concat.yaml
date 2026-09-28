@@ -1,0 +1,18 @@
+id: lgpd-log-001-cpf-concat
+description: CPF concatenado em logger.info.
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/CadastroService.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+
+    public class CadastroService {
+        private static final Logger logger = LoggerFactory.getLogger(CadastroService.class);
+
+        public void cadastrar(String cpf, String nome) {
+            logger.info("Cadastrando cliente CPF: " + cpf);
+        }
+    }
+expect:
+  LGPD-LOG-001: true

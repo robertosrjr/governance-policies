@@ -1,0 +1,17 @@
+id: arch-hex-001-infrastructure-ok
+description: Spring e JPA são permitidos em infrastructure.
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/persistence/ClienteEntity.java: |
+    package com.empresa.pedidos.infrastructure.persistence;
+
+    import jakarta.persistence.Entity;
+    import jakarta.persistence.Id;
+
+    @Entity
+    public class ClienteEntity {
+        @Id
+        private Long id;
+    }
+expect:
+  ARCH-HEX-001: false
+  ARCH-HEX-002: false

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://governance.local/schemas/policy-1.0.json",
+  "title": "Política de governança (fonte única de uma regra)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "version", "owner", "adr", "severity", "mode", "scope",
+               "description", "remediation", "enforcement", "targets"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Z]+(-[A-Z0-9]+)+$"},
+    "title": {"type": "string", "minLength": 5},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "owner": {"type": "string", "minLength": 2},
+    "adr": {"type": "string", "pattern": "^ADR-[A-Z]+-\\d{3}$"},
+    "severity": {"enum": ["CRITICAL", "MAJOR", "MINOR"]},
+    "mode": {
+      "description": "audit: só registra na evidência · warn: aparece no PR · enforce: CRITICAL bloqueia",
+      "enum": ["audit", "warn", "enforce"]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include"],
+      "properties": {
+        "include": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "exclude": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "description": {"type": "string", "minLength": 10},
+    "remediation": {"type": "string", "minLength": 10},
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["pr-review", "claude-code", "aws-security-agent"]}
+    },
+    "compliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compliant", "non_compliant"],
+      "properties": {
+        "applicability": {"type": "string"},
+        "compliant": {"type": "string"},
+        "non_compliant": {"type": "string"}
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deterministic": {"type": "array", "items": {"$ref": "#/$defs/deterministic_rule"}},
+        "llm": {"$ref": "#/$defs/llm_binding"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"targets": {"contains": {"const": "aws-security-agent"}}}},
+      "then": {"required": ["compliance"]}
+    }
+  ],
+  "$defs": {
+    "deterministic_rule": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["type", "pattern", "message"],
+          "properties": {
+            "type": {"const": "regex"},
+            "pattern": {"type": "string"},
+            "exclude": {"type": "string"},
+            "strip": {"type": "string"},
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "message"],
+          "properties": {
+            "type": {"const": "path_changed"},
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "tool", "reference"],
+          "properties": {
+            "type": {"const": "external"},
+            "tool": {"type": "string"},
+            "reference": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "llm_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "criteria", "blocking"],
+      "properties": {
+        "reviewer": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "criteria": {"type": "string", "minLength": 20},
+        "blocking": {
+          "description": "true só com eval_evidence: achado do LLM passa a bloquear",
+          "type": "boolean"
+        },
+        "eval_evidence": {
+          "description": "Referência ao relatório de eval que justificou blocking=true",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

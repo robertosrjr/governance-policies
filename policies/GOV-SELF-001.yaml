@@ -1,0 +1,32 @@
+id: GOV-SELF-001
+title: Mudança em arquivo que controla CI ou assistentes de IA
+version: 1.0.0
+owner: plataforma
+adr: ADR-GOV-000
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - ".github/**"
+    - "**/CODEOWNERS"
+    - ".gitlab-ci.yml"
+    - ".claude/**"
+    - "**/CLAUDE.md"
+    - "**/AGENTS.md"
+    - "**/GEMINI.md"
+    - ".cursor/**"
+    - "**/.cursorrules"
+    - ".mcp.json"
+description: >-
+  Workflows, CODEOWNERS e instruções de assistentes de IA definem como o código é
+  verificado e gerado. Mudanças neles são legítimas, mas precisam de aprovação do time
+  de plataforma (CODEOWNERS no repo-alvo). O pipeline central não lê nada desses
+  arquivos, então alterá-los não muda o veredito; este aviso existe para a revisão
+  humana.
+remediation: >-
+  Garanta a aprovação de um CODEOWNER de plataforma. Veja templates/target-repo/CODEOWNERS.
+targets: [pr-review]
+enforcement:
+  deterministic:
+    - type: path_changed
+      message: Arquivo de CI ou de assistente de IA alterado; exige aprovação de CODEOWNER de plataforma.

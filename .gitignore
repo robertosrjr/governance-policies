@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+governance-out/
+out/
+eval-*.json
+~$*.docx

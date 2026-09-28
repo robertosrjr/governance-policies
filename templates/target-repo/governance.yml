@@ -1,0 +1,25 @@
+# Modo conta pessoal: copie para .github/workflows/governance.yml do repo-alvo.
+# Com organização, NÃO use este arquivo: o ruleset (templates/org-ruleset.json) aplica
+# o workflow central sem que o repo-alvo possa editá-lo.
+#
+# Mantenha a ref do 'uses:' e governance_ref iguais. O CODEOWNERS protege este arquivo,
+# e o ruleset do repo exige o check "governance / governance".
+name: governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  id-token: write
+  attestations: write
+
+jobs:
+  governance:
+    uses: robertosrjr/PlatEnterpriseGovSecLLMOps/.github/workflows/governance-required.yml@v1.0.0
+    with:
+      governance_ref: v1.0.0
+    secrets: inherit

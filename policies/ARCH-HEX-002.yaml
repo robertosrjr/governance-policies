@@ -1,0 +1,27 @@
+id: ARCH-HEX-002
+title: Camadas internas não dependem de infrastructure
+version: 1.1.0
+owner: arquitetura
+adr: ADR-ARCH-001
+severity: CRITICAL
+mode: enforce
+scope:
+  include: ["**/src/main/java/**/domain/**/*.java", "**/src/main/java/**/application/**/*.java"]
+  exclude: ["**/src/test/**"]
+description: >-
+  `domain` e `application` não podem referenciar classes de pacotes `infrastructure`
+  (import, import static ou nome totalmente qualificado). A dependência aponta sempre
+  para dentro: infrastructure -> application -> domain.
+remediation: >-
+  Declare uma porta (interface) em `application/port/out` e implemente o adaptador em
+  `infrastructure`. O caso de uso depende só da porta.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\b(?:[a-z_][a-z0-9_]*\.)+infrastructure\.'
+      exclude: '^\s*(?://|/?\*)'
+      message: Camada interna referencia infrastructure (ADR-ARCH-001).
+    - type: external
+      tool: archunit
+      reference: ArchitectureTest#application_should_not_depend_on_infrastructure

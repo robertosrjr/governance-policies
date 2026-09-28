@@ -1,0 +1,14 @@
+id: sec-obfusc-001-escape-in-literal
+description: Escape Unicode dentro de literal de string e char é permitido.
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Moeda.java: |
+    package com.empresa.pedidos.domain.model;
+
+    public final class Moeda {
+        public static final String EURO = "\u20AC";
+        public static final char REAL = '\u0052';
+
+        private Moeda() {}
+    }
+expect:
+  SEC-OBFUSC-001: false

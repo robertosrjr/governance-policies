@@ -1,0 +1,21 @@
+id: arch-hex-002-module-dir-named-application
+description: >-
+  Regressão encontrada na PoC virtualthreads: o módulo Maven fica em uma pasta chamada
+  "application/", e o escopo antigo (**/application/**) tratava adaptadores de
+  infrastructure como camada de aplicação. O escopo agora olha o pacote Java.
+tags: [regression]
+files:
+  application/pedidos/src/main/java/com/robertosrjr/pedidos/infrastructure/adapter/in/web/OrderController.java: |
+    package com.robertosrjr.pedidos.infrastructure.adapter.in.web;
+
+    import com.robertosrjr.pedidos.infrastructure.adapter.in.web.dto.response.OrderResponse;
+
+    public class OrderController {}
+  application/pedidos/src/main/java/com/robertosrjr/pedidos/application/usecase/GetOrderUseCaseImpl.java: |
+    package com.robertosrjr.pedidos.application.usecase;
+
+    import com.robertosrjr.pedidos.application.port.out.OrderRepositoryPort;
+
+    public class GetOrderUseCaseImpl {}
+expect:
+  ARCH-HEX-002: false

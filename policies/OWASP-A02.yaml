@@ -1,0 +1,28 @@
+# Requisito de revisão de design/pentest (AWS Security Agent). Não é verificável
+# no diff: o motor não o avalia (mode: audit, sem enforcement). Migrado de
+# .claude/rules/custom_security_pack_owasp2025.json.
+id: OWASP-A02
+title: 'Configuração segura: defaults seguros, sem debug, sem acesso público'
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: MAJOR
+mode: audit
+scope:
+  include:
+  - '**/*'
+description: >-
+  Ensure secure defaults, disable active debug code, and restrict public access (OWASP A02:2025).
+remediation: >-
+  Remove active debug code (CWE-489) before deployment. Use AWS Config rules to enforce S3 Block
+  Public Access and TLS 1.2+.
+targets:
+- aws-security-agent
+- claude-code
+compliance:
+  applicability: Applies to Infrastructure as Code (CloudFormation/Terraform), application configuration
+    files, and S3 bucket settings.
+  compliant: S3 Block Public Access is active, debug endpoints are disabled in production binaries,
+    and security headers are enforced.
+  non_compliant: debug binaries or unencrypted transmission exist.
+enforcement: {}

@@ -1,0 +1,31 @@
+# Requisito de revisão de design/pentest (AWS Security Agent). Não é verificável
+# no diff: o motor não o avalia (mode: audit, sem enforcement). Migrado de
+# .claude/rules/custom_security_pack_owasp2025.json.
+id: OWASP-A01
+title: 'Controle de acesso: menor privilégio, default deny, IDOR e SSRF'
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: CRITICAL
+mode: audit
+scope:
+  include:
+  - '**/*'
+description: >-
+  Enforce least privilege, default deny, and IDOR/SSRF prevention across APIs and microservices
+  (OWASP A01:2025).
+remediation: >-
+  Implement Amazon Verified Permissions or Cedar policies for fine-grained authorization. Validate
+  user ownership before object access (CWE-639) and restrict outbound VPC traffic for SSRF prevention
+  (CWE-918).
+targets:
+- aws-security-agent
+- claude-code
+compliance:
+  applicability: Applies to all REST/GraphQL APIs, Lambda functions, API Gateways, and S3 bucket
+    access policies.
+  compliant: APIs use explicit authorization checks, IAM roles with least privilege, default-deny
+    access controls, and sanitized URLs.
+  non_compliant: object IDs are accepted from user input without ownership validation (IDOR)
+    or unvalidated external HTTP requests are issued (SSRF).
+enforcement: {}

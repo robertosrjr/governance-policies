@@ -1,0 +1,27 @@
+id: QUAL-CODE-001
+title: Regras objetivas de qualidade de código Java
+version: 1.0.0
+owner: arquitetura
+adr: ADR-QUAL-001
+severity: MAJOR
+mode: warn
+scope:
+  include: ["**/src/main/java/**/*.java"]
+description: >-
+  Regras objetivas herdadas do code-quality-auditor da PoC: não retornar null em método
+  público, injeção por construtor (não por campo), nenhum `catch` genérico que engole a
+  exceção, nenhum retorno `Object` em API pública. Revisão por LLM, consultiva.
+remediation: >-
+  Use Optional ou exceção de domínio em vez de null; injete dependências pelo construtor;
+  trate exceções específicas e propague ou registre com contexto; tipe o retorno.
+targets: [pr-review, claude-code]
+enforcement:
+  llm:
+    reviewer: quality
+    blocking: false
+    criteria: |
+      Aponte, somente em linhas adicionadas:
+      - `return null` em método público;
+      - injeção de dependência em campo (@Autowired/@Inject em atributo);
+      - `catch (Exception|Throwable ...)` que ignora a exceção ou só a imprime;
+      - método público que retorna `Object`.

@@ -1,0 +1,67 @@
+"""Tipos compartilhados entre as camadas do motor."""
+
+from dataclasses import dataclass, field
+
+SEVERITIES = ("CRITICAL", "MAJOR", "MINOR")
+MODES = ("enforce", "warn", "audit")
+
+
+@dataclass(frozen=True)
+class ChangedFile:
+    """Arquivo alterado no PR: conteúdo final e linhas adicionadas (nº da linha -> texto)."""
+
+    path: str
+    content: str
+    added_lines: dict = field(default_factory=dict)
+    deleted: bool = False
+
+
+@dataclass(frozen=True)
+class Policy:
+    id: str
+    title: str
+    version: str
+    owner: str
+    adr: str
+    severity: str
+    mode: str
+    include: tuple
+    exclude: tuple
+    description: str
+    remediation: str
+    deterministic: tuple
+    llm: dict | None
+    targets: tuple
+    raw: dict
+
+    @property
+    def llm_blocking(self):
+        return bool(self.llm and self.llm.get("blocking"))
+
+
+@dataclass
+class Finding:
+    policy_id: str
+    severity: str
+    file: str
+    line: int | None
+    message: str
+    source: str  # "deterministic" | "llm"
+    blocking: bool = False
+    waiver_id: str | None = None
+
+    def as_dict(self):
+        return {
+            "policy_id": self.policy_id,
+            "severity": self.severity,
+            "file": self.file,
+            "line": self.line,
+            "message": self.message,
+            "source": self.source,
+            "blocking": self.blocking,
+            "waiver_id": self.waiver_id,
+        }
+
+
+class GovernanceError(Exception):
+    """Falha que torna o veredito inválido. O pipeline trata como bloqueio (fail-closed)."""

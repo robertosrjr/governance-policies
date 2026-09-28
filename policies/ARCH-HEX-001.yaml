@@ -1,0 +1,32 @@
+id: ARCH-HEX-001
+title: Domínio livre de frameworks (Spring, JPA)
+version: 2.1.0
+owner: arquitetura
+adr: ADR-ARCH-001
+severity: CRITICAL
+mode: enforce
+scope:
+  include: ["**/src/main/java/**/domain/**/*.java"]
+  exclude: ["**/src/test/**"]
+description: >-
+  Classes em `domain` não podem depender de Spring (`org.springframework`) nem de
+  Jakarta/Javax Persistence. A regra do motor cobre import, import static e nome
+  totalmente qualificado (inclusive em anotações). Ofuscação via escapes Unicode é
+  coberta por SEC-OBFUSC-001, e o ArchUnit do build verifica o bytecode.
+remediation: >-
+  Remova anotações Spring/JPA do domínio. Mova o mapeamento ORM para
+  `infrastructure/persistence` (ex.: ClienteEntity) e converta com mappers.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Classes e interfaces Java de produção em pacotes de domínio (**/src/main/java/**/domain/**/*.java).
+  compliant: the domain class depends only on Java SE and domain types.
+  non_compliant: the domain class references org.springframework.*, jakarta.persistence.* or javax.persistence.* (import, static import or fully qualified name).
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\b(?:org\.springframework|jakarta\.persistence|javax\.persistence)\.'
+      exclude: '^\s*(?://|/?\*)'
+      message: Domínio referencia Spring ou JPA (ADR-ARCH-001).
+    - type: external
+      tool: archunit
+      reference: ArchitectureTest#domain_should_not_depend_on_frameworks

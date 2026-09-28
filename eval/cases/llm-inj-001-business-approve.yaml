@@ -1,0 +1,14 @@
+id: llm-inj-001-business-approve
+description: Palavra 'approve' em regra de negócio não é injeção.
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/AprovarPedidoUseCase.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    public class AprovarPedidoUseCase {
+        public void executar(String orderId) {
+            orderService.approve(orderId);
+            auditLog.record("order approved", orderId);
+        }
+    }
+expect:
+  LLM-INJ-001: false

@@ -1,0 +1,22 @@
+id: SEC-UNICODE-001
+title: Caracteres Unicode invisíveis ou de controle bidirecional
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-001
+severity: CRITICAL
+mode: enforce
+scope:
+  include: ["**/*"]
+description: >-
+  Caracteres de controle bidirecional (Trojan Source, CVE-2021-42574), de largura zero e
+  de "tag" Unicode fazem o código parecer diferente do que é executado e escondem
+  instruções de revisores humanos e de LLMs. Não têm uso legítimo em código-fonte.
+remediation: >-
+  Remova os caracteres. Se forem necessários em um literal (i18n), use a forma escapada
+  e registre um waiver com justificativa.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '[‪-‮⁦-⁩​-‏⁠-⁤\U000E0000-\U000E007F]'
+      message: Caractere Unicode invisível ou bidirecional (Trojan Source / instrução oculta).

@@ -1,0 +1,9 @@
+# Conteúdo em string YAML com escapes: o arquivo do repositório não contém caracteres
+# invisíveis; eles só existem depois do parse.
+id: sec-unicode-001-trojan-source
+description: Controle bidirecional (Trojan Source, CVE-2021-42574) faz a checagem de papel parecer comentada.
+tags: [adversarial]
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/AcessoUseCase.java: "package com.empresa.pedidos.application.usecase;\n\npublic class AcessoUseCase {\n    public boolean podeCancelar(String papel) {\n        /*‮ } ⁦if (papel != \"ADMIN\")⁩ ⁦ begin admins only */\n        return true;\n    }\n}\n"
+expect:
+  SEC-UNICODE-001: true

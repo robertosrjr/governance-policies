@@ -1,0 +1,19 @@
+# Exemplo de waiver. Copie para waivers/WVR-AAAA-NNN.yaml via PR neste repositório.
+# Regras (validadas por `python -m governance validate` e na avaliação):
+# - approved_by diferente de requested_by (CODEOWNER de AppSec aprova o PR do waiver);
+# - validade de no máximo 90 dias; expirado = ignorado (o achado volta a bloquear);
+# - paths o mais estreito possível; "**" sozinho é rejeitado;
+# - commit (opcional) restringe a um commit específico: um push depois não herda a exceção.
+id: WVR-2026-001
+policy_id: LGPD-LOG-001
+repository: robertosrjr/virtualthreads
+paths:
+  - "application/pedidos/src/main/java/com/robertosrjr/pedidos/infrastructure/legacy/**"
+justification: >-
+  Módulo legado de importação será removido no fim da migração (épico PED-142); os logs
+  desse módulo já vão para um destino com retenção de 7 dias e acesso restrito.
+requested_by: dev-pedidos
+approved_by: appsec-lead
+created: 2026-09-25
+expires: 2026-11-24
+# commit: 0ea3491

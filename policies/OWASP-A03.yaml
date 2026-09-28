@@ -1,0 +1,28 @@
+# Requisito de revisão de design/pentest (AWS Security Agent). Não é verificável
+# no diff: o motor não o avalia (mode: audit, sem enforcement). Migrado de
+# .claude/rules/custom_security_pack_owasp2025.json.
+id: OWASP-A03
+title: 'Cadeia de suprimentos: dependências mantidas e SBOM'
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: MAJOR
+mode: audit
+scope:
+  include:
+  - '**/*'
+description: >-
+  Validate third-party dependencies and maintain Software Bill of Materials (OWASP A03:2025).
+remediation: >-
+  Set up automated dependency scanning using Amazon Inspector / OWASP Dependency-Track and restrict
+  packages to internal Amazon CodeArtifact repositories.
+targets:
+- aws-security-agent
+- claude-code
+compliance:
+  applicability: Applies to package manifests (package.json, pom.xml, requirements.txt) and
+    container build pipelines.
+  compliant: all third-party libraries are up to date without critical CVEs and scanned via
+    Amazon Inspector or CodeArtifact.
+  non_compliant: unmaintained or obsolete components (CWE-1104, CWE-1395) are included.
+enforcement: {}

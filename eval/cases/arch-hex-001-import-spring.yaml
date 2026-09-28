@@ -1,0 +1,17 @@
+id: arch-hex-001-import-spring
+description: Domínio importando Spring e JPA (caso clássico).
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Cliente.java: |
+    package com.empresa.pedidos.domain.model;
+
+    import jakarta.persistence.Entity;
+    import org.springframework.stereotype.Component;
+
+    @Entity
+    @Component
+    public class Cliente {
+        private Long id;
+    }
+expect:
+  ARCH-HEX-001: true
+  ARCH-HEX-002: false

@@ -1,0 +1,13 @@
+id: gov-self-001-regular-code
+description: PR só com código de aplicação.
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/ListarPedidosUseCase.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    public class ListarPedidosUseCase {
+        public int limite() {
+            return 100;
+        }
+    }
+expect:
+  GOV-SELF-001: false

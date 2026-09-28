@@ -1,0 +1,17 @@
+id: arch-hex-002-application-imports-infra
+description: Caso de uso dependendo do adaptador concreto.
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/CreateOrderUseCaseImpl.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import com.empresa.pedidos.infrastructure.adapter.out.persistence.InMemoryOrderRepositoryAdapter;
+
+    public class CreateOrderUseCaseImpl {
+        private final InMemoryOrderRepositoryAdapter repository;
+
+        public CreateOrderUseCaseImpl(InMemoryOrderRepositoryAdapter repository) {
+            this.repository = repository;
+        }
+    }
+expect:
+  ARCH-HEX-002: true

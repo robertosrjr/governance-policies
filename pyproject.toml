@@ -1,0 +1,10 @@
+[project]
+name = "enterprise-governance"
+version = "1.0.0"
+description = "Motor de governança e SecLLMOps: políticas-como-código sobre PRs"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["engine", "tests"]
+testpaths = ["tests"]
+addopts = "-q"

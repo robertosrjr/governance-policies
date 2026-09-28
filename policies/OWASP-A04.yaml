@@ -1,0 +1,28 @@
+# Requisito de revisão de design/pentest (AWS Security Agent). Não é verificável
+# no diff: o motor não o avalia (mode: audit, sem enforcement). Migrado de
+# .claude/rules/custom_security_pack_owasp2025.json.
+id: OWASP-A04
+title: 'Criptografia: KMS CMK em repouso e TLS 1.2+ em trânsito'
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: CRITICAL
+mode: audit
+scope:
+  include:
+  - '**/*'
+description: >-
+  Enforce strong cryptography and Customer Managed Keys (CMK) for data at rest and in transit
+  (OWASP A04:2025).
+remediation: >-
+  Migrate secrets and keys to AWS Secrets Manager or KMS. Replace cleartext HTTP/FTP endpoints
+  with HTTPS/TLS.
+targets:
+- aws-security-agent
+- claude-code
+compliance:
+  applicability: Applies to S3 buckets, DynamoDB, RDS, CloudWatch Logs, and API communications.
+  compliant: data at rest is encrypted with AWS KMS CMK and data in transit uses TLS 1.2+.
+  non_compliant: hardcoded cryptographic keys (CWE-321) or cleartext transmission (CWE-319)
+    are detected.
+enforcement: {}

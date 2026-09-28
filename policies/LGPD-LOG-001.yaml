@@ -1,0 +1,43 @@
+id: LGPD-LOG-001
+title: Dado pessoal em logs, traces, métricas ou exceções
+version: 2.0.0
+owner: privacidade
+adr: ADR-LGPD-001
+severity: CRITICAL
+mode: enforce
+scope:
+  include: ["**/*.java", "**/*.kt"]
+  exclude: ["**/src/test/**"]
+description: >-
+  Nenhum dado pessoal (CPF, CNPJ, RG, e-mail, telefone, cartão, senha) pode chegar a
+  logs, traces, métricas ou mensagens de exceção sem mascaramento. A regra do motor
+  cobre o caso direto em uma linha (identificador pessoal como argumento de log fora de
+  mask/sanitize/redact). Os casos indiretos (toString() de objeto com dado pessoal, corpo
+  de request, atributo de span, tag de métrica, chamada de log quebrada em várias linhas)
+  ficam com o LLM, em modo consultivo até o eval justificar bloqueio.
+remediation: >-
+  Passe o valor por `PIISanitizer.mask(valor)` antes de logar, ou registre só um
+  identificador técnico (id do pedido, hash). Nunca logue o objeto inteiro nem o corpo
+  de request/response.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Código Java/Kotlin de produção que escreve logs, spans, métricas ou exceções.
+  compliant: personal data is masked (PIISanitizer.mask) or replaced by technical identifiers before reaching logs, traces, metrics or exception messages.
+  non_compliant: CPF, CNPJ, RG, e-mail, phone, card or password values reach logs, traces, metric tags or exception messages unmasked.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?i)\b(?:log(?:ger)?|system\.(?:out|err))\s*\.\s*(?:trace|debug|info|warn|error|print(?:ln|f)?)\s*\(.*(?:cpf|cnpj|\brg\b|e-?mail|telefone|celular|phone|cart[aã]o|card_?number|senha|password)'
+      strip: '"(?:[^"\\]|\\.)*"|\b(?:PIISanitizer\.)?(?:mask|sanitize|redact)\w*\s*\([^()]*\)'
+      message: Dado pessoal passado a log sem mascaramento (LGPD Art. 6º III e Art. 46).
+  llm:
+    reviewer: lgpd
+    blocking: false
+    criteria: |
+      Aponte quando uma linha adicionada fizer dado pessoal chegar, sem mascaramento, a:
+      - log (inclusive via toString() implícito de objeto que contém dado pessoal, ou
+        log de corpo de request/response);
+      - atributo de span/trace ou baggage;
+      - tag/label de métrica (também é problema de cardinalidade);
+      - mensagem de exceção que pode ser logada ou devolvida ao cliente.
+      Não aponte valores que passam por mask/sanitize/redact nem identificadores técnicos.

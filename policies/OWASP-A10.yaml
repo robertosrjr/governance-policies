@@ -1,0 +1,28 @@
+# Requisito de revisão de design/pentest (AWS Security Agent). Não é verificável
+# no diff: o motor não o avalia (mode: audit, sem enforcement). Migrado de
+# .claude/rules/custom_security_pack_owasp2025.json.
+id: OWASP-A10
+title: 'Tratamento de exceções: fail-closed, sem stack trace ao cliente'
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: MAJOR
+mode: audit
+scope:
+  include:
+  - '**/*'
+description: >-
+  Prevent improper error handling and ensure fail-closed logic (OWASP A10:2025).
+remediation: >-
+  Implement global exception handlers that return generic error pages/JSON to clients while
+  logging full details internally to CloudWatch.
+targets:
+- aws-security-agent
+- claude-code
+compliance:
+  applicability: Applies to all application code, try-catch blocks, and API exception handlers.
+  compliant: exceptions are caught, logged securely without sensitive data, and fail securely
+    (fail-closed).
+  non_compliant: stack traces or server internal information are returned to the client (CWE-550)
+    or if system fails open (CWE-636).
+enforcement: {}

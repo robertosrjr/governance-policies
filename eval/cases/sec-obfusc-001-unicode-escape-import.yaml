@@ -1,0 +1,15 @@
+id: sec-obfusc-001-unicode-escape-import
+description: 'Import proibido ofuscado com escape Unicode: a regex de arquitetura não vê, SEC-OBFUSC-001
+  sim (e o ArchUnit, no bytecode).'
+tags:
+- adversarial
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Fatura.java: |
+    package com.empresa.pedidos.domain.model;
+
+    import \u006frg.springframework.stereotype.Component;
+
+    @Component
+    public class Fatura {}
+expect:
+  SEC-OBFUSC-001: true

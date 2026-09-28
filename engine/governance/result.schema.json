@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://governance.local/schemas/result-1.0.json",
+  "title": "Resultado da avaliação de governança (evidência atestada por commit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "summary", "subject", "bundle", "policies_evaluated",
+               "adr_compliance", "violations", "waived", "errors", "warnings", "stats"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["APPROVED", "BLOCKED"]},
+    "summary": {"type": "string"},
+    "subject": {
+      "type": "object",
+      "required": ["repository", "commit", "base"],
+      "properties": {
+        "repository": {"type": "string"},
+        "commit": {"type": ["string", "null"]},
+        "base": {"type": "string"},
+        "pull_request": {"type": ["integer", "null"]}
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "required": ["engine_version", "bundle_version", "governance_ref", "policies_digest", "llm"],
+      "properties": {
+        "engine_version": {"type": "string"},
+        "bundle_version": {"type": "string"},
+        "governance_ref": {"type": ["string", "null"]},
+        "policies_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "llm": {
+          "type": ["object", "null"],
+          "required": ["provider", "model"],
+          "properties": {"provider": {"type": "string"}, "model": {"type": "string"}}
+        }
+      }
+    },
+    "policies_evaluated": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "version", "mode"],
+        "properties": {
+          "id": {"type": "string"},
+          "version": {"type": "string"},
+          "mode": {"enum": ["enforce", "warn", "audit"]}
+        }
+      }
+    },
+    "adr_compliance": {
+      "type": "object",
+      "additionalProperties": {"enum": ["PASS", "WARN", "FAIL"]}
+    },
+    "violations": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "waived": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "stats": {"type": "object"}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "severity", "file", "line", "message", "source", "blocking",
+                   "waiver_id", "mode"],
+      "properties": {
+        "policy_id": {"type": "string"},
+        "severity": {"enum": ["CRITICAL", "MAJOR", "MINOR"]},
+        "file": {"type": "string"},
+        "line": {"type": ["integer", "null"]},
+        "message": {"type": "string"},
+        "source": {"enum": ["deterministic", "llm"]},
+        "blocking": {"type": "boolean"},
+        "waiver_id": {"type": ["string", "null"]},
+        "mode": {"enum": ["enforce", "warn", "audit"]}
+      }
+    }
+  }
+}
