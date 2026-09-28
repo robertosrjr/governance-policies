@@ -87,8 +87,8 @@ def test_llm_findings_outside_contract_are_discarded(policies, bundle, bad):
 class ApiError(Exception):
     """Imita google.genai.errors.APIError: o código HTTP fica em `.code`."""
 
-    def __init__(self, code):
-        super().__init__(f"HTTP {code}")
+    def __init__(self, code, text=""):
+        super().__init__(f"{code} {text}".strip())
         self.code = code
 
 
@@ -122,6 +122,9 @@ def test_provider_down_does_not_hide_a_real_violation(policies, bundle):
 
 @pytest.mark.parametrize("error, text", [
     (ApiError(403), "GEMINI_API_KEY"),
+    # resposta real do Gemini para chave inválida
+    (ApiError(400, "INVALID_ARGUMENT. API key not valid. Please pass a valid API key."),
+     "GEMINI_API_KEY"),
     (ApiError(404), "time de plataforma"),
     (ValueError("json"), "Re-run"),
 ])

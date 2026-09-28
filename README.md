@@ -7,6 +7,9 @@ evidência atestada por commit.
 **Guia completo** (regras, funcionamento, como usar, como aplicar, boas práticas e
 problemas comuns): [docs/guia.md](docs/guia.md).
 
+**Manual de configuração** (passo a passo para ligar a governança em um repositório, do
+zero ao primeiro PR bloqueado): [docs/manual-configuracao.md](docs/manual-configuracao.md).
+
 Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md).
 Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 `docs/Governança SecLLMOps Enterprise.docx`.

@@ -11,6 +11,12 @@ Este texto relata o que aconteceu quando ligamos as ADRs de um projeto Java a re
 executadas em todo Pull Request: o que funcionou, o que quebrou no primeiro dia e o que
 continua sem resposta. Não é uma defesa do modelo. É o registro de como ele se comportou.
 
+**Escopo:** é uma prova de conceito. Hoje são 9 regras rodando no PR (6 bloqueiam, 3 só
+alertam), cobrindo arquitetura hexagonal, dado pessoal em log, segredos e manipulação de
+revisores de IA. O objetivo não é mostrar um conjunto completo, e sim o mecanismo: com ele
+funcionando, ampliar os guardrails passa a ser escrever uma política nova, um ADR e os
+casos de teste dela.
+
 ## O arranjo, em uma frase
 
 Cada decisão **verificável** de uma ADR vira uma política em YAML que aponta para a ADR;
@@ -227,6 +233,24 @@ porque a resposta do modelo varia.
 6. Para toda exceção, use um registro com dono, justificativa e data de validade, nunca um
    comentário de "bypass" no PR.
 7. Ao trocar o pipeline, revise no mesmo dia a proteção do branch e a versão publicada.
+
+## Como testar você mesmo
+
+O repositório é público. Com Python e git, dá para ver uma regra bloqueando em poucos
+minutos, sem abrir PR:
+
+1. Clone o repositório e instale as dependências:
+   `pip install --no-deps --require-hashes -r engine/requirements-dev.lock`.
+2. Em um projeto Java seu, crie um branch e adicione
+   `import org.springframework.stereotype.Component;` a uma classe de `domain/`. Faça commit.
+3. Do repositório clonado, rode
+   `python -m governance review --repo <seu-projeto> --base main --no-llm`
+   (com `PYTHONPATH=engine`).
+4. A saída mostra `ARCH-HEX-001 … (deterministic, bloqueia)` e `Veredito: BLOCKED`.
+
+O [manual de configuração](manual-configuracao.md) tem o passo a passo completo: outros
+cenários (CPF em log, segredo, alerta), a saída real de cada um, como ligar no GitHub, onde
+aparece cada mensagem no PR e o que fazer com cada erro.
 
 ## Fechamento
 

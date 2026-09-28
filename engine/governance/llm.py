@@ -165,6 +165,12 @@ def _http_status(exc):
     return status if isinstance(status, int) else None
 
 
+def _key_rejected(status, exc):
+    # O Gemini responde chave inválida com HTTP 400 (API_KEY_INVALID), não com 401/403.
+    return status in (401, 403) or (
+        status == 400 and ("API_KEY_INVALID" in str(exc) or "API key not valid" in str(exc)))
+
+
 def llm_run_error(reviewer, exc):
     """Traduz a falha do provedor em causa e ação para quem abriu o PR."""
     who = f"Revisor de IA ({reviewer})"
@@ -182,7 +188,7 @@ def llm_run_error(reviewer, exc):
                         f"{who} indisponível: sem resposta do provedor de LLM "
                         f"({type(exc).__name__}).",
                         f"Não é problema no seu código. Aguarde alguns minutos e {RERUN}.")
-    if status in (401, 403):
+    if _key_rejected(status, exc):
         return RunError("llm_failure", f"{who}: a chave do provedor de LLM foi recusada "
                                        f"(HTTP {status}).",
                         "Verifique o segredo GEMINI_API_KEY em Settings → Secrets and "

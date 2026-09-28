@@ -41,21 +41,172 @@ muda como ele é revisado.
 
 ## 2. Como o repositório funciona
 
-### 2.1 Estrutura
+### 2.1 Estrutura: o que tem em cada pasta
+
+Visão geral:
 
 ```
-policies/*.yaml            As regras. 1 arquivo = 1 regra. Schema em policies/schema/
-adrs/                      O porquê de cada regra (ADR-<ÁREA>-<NNN>)
-waivers/                   Exceções aprovadas, com validade
-eval/cases/                Exemplos executáveis: código que deve e que não deve violar cada regra
-engine/governance/         O motor (Python)
-engine/governance/prompts/ Prompts dos revisores LLM
-engine/bundle.yaml         Provedor, modelo, temperatura e orçamento do LLM
-exports/                   GERADO: pack do AWS Security Agent
-.claude/rules/             GERADO: as regras em formato de instrução para o Claude Code
-.github/workflows/         governance-required.yml (roda nos repos-alvo) e ci.yml (roda aqui)
-templates/                 Modelos de política, ADR, waiver, CODEOWNERS e workflow do repo-alvo
+governance-policies/
+├── policies/        AS REGRAS (fonte única)
+├── adrs/            O PORQUÊ de cada regra
+├── eval/cases/      EXEMPLOS que provam que cada regra funciona
+├── waivers/         EXCEÇÕES aprovadas, com validade
+├── engine/          O MOTOR que avalia os PRs
+├── .github/         Os WORKFLOWS (o que roda no GitHub)
+├── templates/       MODELOS para copiar
+├── exports/         GERADO: pacote para o AWS Security Agent
+├── .claude/         Regras geradas para o Claude Code + agente/skills do AWS Security Agent
+├── tests/           Testes do motor
+└── docs/            Documentação
 ```
+
+Quem edita o quê, no dia a dia:
+
+| Quero… | Mexo em |
+|---|---|
+| Criar ou mudar uma regra | `policies/`, `adrs/` e `eval/cases/` |
+| Liberar uma exceção | `waivers/` |
+| Mudar o modelo de IA ou os prompts | `engine/bundle.yaml` e `engine/governance/prompts/` |
+| Mudar o comportamento do motor | `engine/governance/*.py` e `tests/` |
+| Mudar o que roda no PR | `.github/workflows/governance-required.yml` |
+| Nunca editar à mão | `exports/`, `.claude/rules/governance-policies.md` e `engine/*.lock` (são gerados) |
+
+#### `policies/`: as regras
+
+Um arquivo YAML por regra (`ARCH-HEX-001.yaml`, `LGPD-LOG-001.yaml`…). É a **fonte
+única**: o motor, o comentário no PR, o SARIF, as instruções do Claude Code e o pacote do
+AWS Security Agent saem daqui. Cada arquivo diz o que a regra proíbe, onde vale
+(`scope`), a severidade, o modo (`enforce`, `warn` ou `audit`), como verificar (regex,
+path, ArchUnit, LLM), como corrigir e qual ADR a justifica (`adr:`).
+
+- `policies/schema/policy.schema.json`: o formato obrigatório de uma política. O
+  `validate` recusa arquivo fora do formato.
+
+#### `adrs/`: o porquê
+
+Um Markdown por decisão (`ADR-<ÁREA>-<NNN>-titulo.md`): contexto, decisão, como é
+verificada e consequências. Toda política aponta para um ADR, e o `validate` falha se o
+ADR não existir.
+
+| ADR | Assunto |
+|---|---|
+| ADR-GOV-000 | O modelo de governança em si (princípios, fail-closed, LLM só aditivo) |
+| ADR-ARCH-001 | Arquitetura hexagonal: domínio sem framework, camadas sem `infrastructure` |
+| ADR-LGPD-001 | Dado pessoal em logs, traces, métricas e exceções |
+| ADR-SEC-001 | Segredos, caracteres invisíveis, ofuscação e manipulação de revisores de IA |
+| ADR-SEC-002 | Requisitos OWASP Top 10:2025 (auditoria) |
+| ADR-QUAL-001 | Regras objetivas de qualidade de código |
+
+#### `eval/cases/`: os exemplos que provam as regras
+
+Um YAML por caso: trechos de código e o resultado esperado para cada política
+(`ARCH-HEX-001: true` = deve violar; `false` = não deve). O `eval` roda todos e compara.
+Casos com `requires_llm: true` só rodam no eval com LLM. Política em `enforce` precisa de
+pelo menos um caso positivo e um negativo. Nome do arquivo: `<política>-<situação>.yaml`.
+
+#### `waivers/`: as exceções
+
+Um YAML por exceção aprovada (`WVR-AAAA-NNN.yaml`): qual política, qual repositório, quais
+caminhos, por quê, quem pediu, quem aprovou e até quando vale (máximo de 90 dias). Hoje
+está vazia, só com:
+
+- `waivers/README.md`: as regras de uma exceção;
+- `waivers/schema/waiver.schema.json`: o formato obrigatório.
+
+#### `engine/`: o motor
+
+| Arquivo ou pasta | Para que serve |
+|---|---|
+| `bundle.yaml` | Provedor, modelo, temperatura, limite de tamanho e tentativas do LLM. Mudar aqui é uma nova versão do revisor e exige eval com LLM. |
+| `requirements.in` / `requirements-dev.in` | Dependências diretas (o que editar). |
+| `requirements.lock` / `requirements-dev.lock` | GERADOS: versões exatas com hash. O CI só instala o que bate com o hash. |
+| `governance/prompts/` | Instruções de cada revisor de IA: `base.md` (regras comuns e proteção contra texto malicioso no código), `lgpd.md`, `quality.md`, `security.md`. |
+| `governance/result.schema.json` | O formato do `result.json` (a evidência). Mudou o formato, sobe o `schema_version`. |
+
+Os módulos Python em `engine/governance/`, na ordem em que um PR passa por eles:
+
+| Módulo | O que faz |
+|---|---|
+| `cli.py`, `__main__.py` | Os comandos `review`, `validate`, `export` e `eval`. |
+| `diff.py` | Descobre quais arquivos e linhas o PR adicionou. |
+| `policy.py` | Carrega e valida as políticas; escolhe as que valem para os arquivos alterados. |
+| `deterministic.py` | Camada T0: regex e path. É a que bloqueia. |
+| `redact.py` | Tira segredos do código antes de enviá-lo ao LLM. |
+| `llm.py` | Camada T1: chama o LLM, filtra a resposta e traduz falhas do provedor em mensagens claras. |
+| `waivers.py` | Carrega as exceções e marca os achados que elas cobrem. |
+| `verdict.py` | Decide `APPROVED` ou `BLOCKED` e monta o `result.json`. |
+| `report.py` | Escreve o comentário do PR e o SARIF. |
+| `github.py` | Publica (ou atualiza) o comentário no PR. |
+| `review.py` | Junta as camadas: é o núcleo usado pelo `review`, pelo `eval` e pelos testes. |
+| `evaluation.py` | O comando `eval`: roda os casos e calcula acerto por política. |
+| `export.py` | Gera `exports/` e `.claude/rules/governance-policies.md` a partir das políticas. |
+| `model.py` | Os tipos compartilhados (política, arquivo alterado, achado, erro). |
+
+#### `.github/`: o que roda no GitHub
+
+| Arquivo | Para que serve |
+|---|---|
+| `workflows/governance-required.yml` | O workflow que avalia os PRs **dos outros repositórios** (chamado por eles). |
+| `workflows/ci.yml` | O CI **deste** repositório: testes, validação, exports e eval a cada PR daqui. |
+| `CODEOWNERS` | Quem precisa aprovar mudanças em regras, motor, prompts e exceções deste repositório. |
+
+#### `templates/`: modelos para copiar
+
+| Arquivo | Para quê |
+|---|---|
+| `policy-template.yaml` | Ponto de partida de uma regra nova. |
+| `adr-template.md` | Ponto de partida de um ADR. |
+| `waiver-example.yaml` | Exemplo comentado de exceção. |
+| `target-repo/governance.yml` | Vai para `.github/workflows/` do repositório da aplicação (modo conta pessoal). |
+| `target-repo/CODEOWNERS` | Vai para `.github/` do repositório da aplicação. |
+| `org-ruleset.json` | Ruleset da organização que obriga todos os repositórios a rodar a governança (modo organização). |
+
+#### `exports/`: gerado para o AWS Security Agent
+
+`aws-security-agent/governance-pack.json`: as políticas no formato que o AWS Security
+Agent lê, incluindo as de auditoria (OWASP), que não rodam no PR. **Gerado** por
+`python -m governance export`; não edite.
+
+#### `.claude/`: Claude Code e AWS Security Agent
+
+| Arquivo ou pasta | Para que serve |
+|---|---|
+| `rules/governance-policies.md` | **Gerado** a partir de `policies/`. O Claude Code lê este arquivo e segue as regras ao escrever código. |
+| `rules/filtering.md` | Pastas que o AWS Security Agent deve ignorar (build, dist, node_modules…). O motor não usa. |
+| `agents/security_coordinator_agent.json` | Definição do agente coordenador do AWS Security Agent. |
+| `skills/threat-modeling/` | Skill de modelagem de ameaças (STRIDE + OWASP Top 10:2025), com a referência OWASP → AWS. |
+| `skills/pentest-validator/` | Skill que guia a validação ativa de vulnerabilidades em pentest automatizado. |
+
+O motor que avalia os PRs **não lê** nada de `.claude/` (nem daqui, nem do repositório
+avaliado). Esses arquivos orientam assistentes de IA, não o veredito.
+
+#### `tests/`: testes do motor
+
+| Arquivo | O que testa |
+|---|---|
+| `conftest.py` | Preparação comum: carrega políticas e cria repositórios git descartáveis. |
+| `test_policy_and_diff.py` | Leitura de políticas, escopo por caminho e leitura do diff. |
+| `test_evaluation_layers.py` | As garantias do modelo: T0 bloqueia, LLM só acrescenta, falhas bloqueiam com a mensagem certa, conteúdo isolado e sem segredos, waivers. |
+| `test_waivers_cli_and_bundle.py` | Exceções, comandos de ponta a ponta, eval, exports e integração com o gitleaks. |
+
+#### `docs/`: documentação
+
+| Arquivo | Para quem |
+|---|---|
+| `guia.md` | Este guia: como tudo funciona. |
+| `manual-configuracao.md` | Passo a passo para ligar a governança em um repositório e testar. |
+| `artigo-adr-enforcement.md` | Relato da experiência: da ADR ao PR bloqueado. |
+| `Governança SecLLMOps Enterprise.docx` | O roteiro original que deu origem ao projeto. |
+
+#### Arquivos na raiz
+
+| Arquivo | Para que serve |
+|---|---|
+| `README.md` | Porta de entrada: resumo e links. |
+| `CLAUDE.md` | Regras para quem edita este repositório, inclusive assistentes de IA. |
+| `pyproject.toml` | Nome e versão do motor; configuração do pytest. |
+| `.gitattributes` | Força fim de linha LF (evita que o Windows quebre o `export --check`). |
+| `.gitignore` | O que o git ignora (caches, saídas locais). |
 
 ### 2.2 O caminho de um PR
 
@@ -210,6 +361,9 @@ Não existe bypass por comentário no PR.
 ## 5. Como aplicar em um repositório novo
 
 ### 5.1 Modo conta pessoal (atual, provisório)
+
+Resumo abaixo. O passo a passo completo, com comandos, configuração do ruleset e os erros
+que encontramos, está no [manual de configuração](manual-configuracao.md).
 
 1. **CODEOWNERS**: copie [templates/target-repo/CODEOWNERS](../templates/target-repo/CODEOWNERS)
    para `.github/CODEOWNERS` e troque `@org/plataforma` pelo seu usuário.
