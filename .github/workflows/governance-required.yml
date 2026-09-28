@@ -95,6 +95,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.base_ref }}
           GOVERNANCE_REF: ${{ inputs.governance_ref || github.workflow_sha }}
+          # O motor inclui o gitleaks no mesmo veredito e no comentário do PR.
+          GITLEAKS_EXIT: ${{ steps.gitleaks.outputs.exit }}
         run: |
           set +e
           python -m governance review --repo target --base "origin/${BASE_REF}" \
@@ -141,5 +143,17 @@ jobs:
           REVIEW_EXIT: ${{ steps.review.outputs.exit }}
           GITLEAKS_EXIT: ${{ steps.gitleaks.outputs.exit }}
         run: |
-          echo "motor=${REVIEW_EXIT:-ausente} gitleaks=${GITLEAKS_EXIT:-ausente}"
+          # Os dois são checados aqui também (defesa em profundidade); o motivo já está
+          # explicado no comentário do PR e nas anotações do passo "Avaliar políticas".
+          case "${REVIEW_EXIT:-ausente}" in
+            0) echo "Motor: aprovado." ;;
+            1) echo "::error title=Governança::PR bloqueado pelo motor. O motivo está no comentário do PR." ;;
+            2) echo "::error title=Governança::O motor não conseguiu avaliar o PR (erro de configuração). Veja o comentário do PR ou o log do passo 'Avaliar políticas'." ;;
+            *) echo "::error title=Governança::O motor não executou (código ${REVIEW_EXIT:-ausente}). Veja os passos anteriores desta execução." ;;
+          esac
+          case "${GITLEAKS_EXIT:-ausente}" in
+            0) echo "gitleaks: nenhum segredo nos commits do PR." ;;
+            1) echo "::error title=gitleaks::Possível segredo em um dos commits do PR. Veja Security → Code scanning (categoria gitleaks)." ;;
+            *) echo "::error title=gitleaks::O gitleaks não concluiu a varredura (código ${GITLEAKS_EXIT:-ausente})." ;;
+          esac
           test "${REVIEW_EXIT}" = "0" && test "${GITLEAKS_EXIT}" = "0"

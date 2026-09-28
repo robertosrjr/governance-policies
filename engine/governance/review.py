@@ -7,6 +7,7 @@ import yaml
 
 from .deterministic import run_deterministic
 from .llm import LlmConfig, run_llm
+from .model import RunError
 from .policy import select_policies
 from .verdict import build_result
 from .waivers import apply_waivers
@@ -37,9 +38,15 @@ def run_layers(files, policies, provider, llm_config, llm_required):
     errors, warnings, discarded = [], [], 0
     semantic = [p for p in evaluated if p.llm]
     if semantic and provider is None:
-        message = ("LLM desligado: políticas semânticas não avaliadas: "
-                   + ", ".join(p.id for p in semantic))
-        (errors if llm_required else warnings).append(message)
+        ids = ", ".join(p.id for p in semantic)
+        if llm_required:
+            errors.append(RunError(
+                "llm_not_configured",
+                f"Revisor de IA não configurado (sem GEMINI_API_KEY): {ids} não foram avaliadas.",
+                "Crie o segredo GEMINI_API_KEY em Settings → Secrets and variables → Actions "
+                "do repositório e rode de novo."))
+        else:
+            warnings.append(f"LLM desligado (--no-llm): {ids} não foram avaliadas.")
     elif semantic:
         llm_findings, llm_errors, discarded = run_llm(semantic, files, provider, llm_config)
         known = {(f.policy_id, f.file, f.line) for f in findings}
@@ -50,9 +57,10 @@ def run_layers(files, policies, provider, llm_config, llm_required):
 
 
 def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_ref,
-             policies_digest, llm_required, extra_warnings=()):
+             policies_digest, llm_required, extra_warnings=(), extra_errors=()):
     evaluated, findings, errors, warnings, discarded = run_layers(
         files, policies, provider, bundle.llm, llm_required)
+    errors = [*extra_errors, *errors]
     apply_waivers(findings, waivers, subject["repository"], subject["commit"])
     return build_result(
         evaluated=evaluated,

@@ -84,16 +84,61 @@ def test_llm_findings_outside_contract_are_discarded(policies, bundle, bad):
     assert result["stats"]["llm_findings_discarded"] == len(provider.calls) == 3
 
 
+class ApiError(Exception):
+    """Imita google.genai.errors.APIError: o código HTTP fica em `.code`."""
+
+    def __init__(self, code):
+        super().__init__(f"HTTP {code}")
+        self.code = code
+
+
 def test_llm_failure_is_fail_closed(policies, bundle):
     result = run(policies, bundle, {USECASE: TOSTRING_LOG}, FakeProvider(error=TimeoutError()))
     assert result["status"] == "BLOCKED"
-    assert "falha na revisão LLM" in result["errors"][0]
+    assert {e["kind"] for e in result["errors"]} == {"llm_unavailable"}
+    assert "sem resposta" in result["errors"][0]["message"]
+
+
+@pytest.mark.parametrize("code, expected", [(503, "HTTP 503"), (429, "sem cota")])
+def test_provider_down_blocks_with_clear_alert(policies, bundle, code, expected):
+    result = run(policies, bundle, {USECASE: TOSTRING_LOG}, FakeProvider(error=ApiError(code)))
+    assert result["status"] == "BLOCKED"
+    assert result["summary"] == "Bloqueado: revisor de IA indisponível."
+    error = result["errors"][0]
+    assert error["kind"] == "llm_unavailable" and expected in error["message"]
+    assert "Não é problema no seu código" in error["action"]
+    markdown = build_markdown(result)
+    assert "Revisor de IA indisponível" in markdown
+    assert "não encontraram violação bloqueante" in markdown
+
+
+def test_provider_down_does_not_hide_a_real_violation(policies, bundle):
+    files = {DOMAIN: SPRING_IN_DOMAIN, USECASE: TOSTRING_LOG}
+    result = run(policies, bundle, files, FakeProvider(error=ApiError(503)))
+    assert result["summary"] == ("Bloqueado: 1 violação(ões) bloqueante(s) e revisor de IA "
+                                 "indisponível.")
+    assert "encontraram violação bloqueante" in build_markdown(result)
+
+
+@pytest.mark.parametrize("error, text", [
+    (ApiError(403), "GEMINI_API_KEY"),
+    (ApiError(404), "time de plataforma"),
+    (ValueError("json"), "Re-run"),
+])
+def test_other_llm_failures_say_what_to_do(policies, bundle, error, text):
+    result = run(policies, bundle, {USECASE: TOSTRING_LOG}, FakeProvider(error=error))
+    assert result["status"] == "BLOCKED"
+    assert result["errors"][0]["kind"] == "llm_failure"
+    assert text in result["errors"][0]["action"]
+    assert "Não é problema no seu código" not in build_markdown(result)
 
 
 def test_missing_llm_in_ci_is_fail_closed_but_allowed_locally(policies, bundle):
     ci = run(policies, bundle, {USECASE: TOSTRING_LOG}, provider=None, llm_required=True)
     local = run(policies, bundle, {USECASE: TOSTRING_LOG}, provider=None, llm_required=False)
     assert ci["status"] == "BLOCKED"
+    assert ci["errors"][0]["kind"] == "llm_not_configured"
+    assert "GEMINI_API_KEY" in ci["errors"][0]["action"]
     assert local["status"] == "APPROVED" and "LLM desligado" in local["warnings"][0]
 
 
@@ -102,7 +147,9 @@ def test_oversized_input_blocks_instead_of_truncating(policies, bundle):
     provider = FakeProvider()
     result = run(policies, bundle, {USECASE: huge}, provider)
     assert result["status"] == "BLOCKED"
-    assert "excede o orçamento" in result["errors"][0]
+    error = result["errors"][0]
+    assert error["kind"] == "input_too_large" and "passa do limite" in error["message"]
+    assert "waiver" not in error["action"]  # waiver cobre achado, não erro de execução
     assert provider.calls == []
 
 

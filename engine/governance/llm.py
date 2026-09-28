@@ -7,7 +7,8 @@ Garantias:
 - A severidade é a da política, não a do modelo. O modelo só escolhe `policy_id`,
   arquivo, linha e mensagem; achados fora do escopo, fora das linhas adicionadas ou com
   `policy_id` desconhecido são descartados.
-- Qualquer falha (API, cota, entrada acima do orçamento) vira erro -> bloqueio.
+- Qualquer falha (API, cota, entrada acima do orçamento) vira erro -> bloqueio, com a causa
+  classificada (llm_run_error) para o relatório dizer se é problema do código e o que fazer.
 """
 
 import json
@@ -18,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
-from .model import Finding, GovernanceError
+from .model import Finding, GovernanceError, RunError
 from .policy import in_scope
 from .redact import redact
 
@@ -98,8 +99,8 @@ def batch_files(files, max_chars):
         rendered = len(render_file(changed_file))
         if rendered > max_chars:
             raise GovernanceError(
-                f"{changed_file.path} excede o orçamento de revisão ({rendered} > {max_chars} "
-                "caracteres). Divida o PR ou solicite waiver. (fail-closed: nada é truncado)")
+                f"{changed_file.path} tem {rendered} caracteres e passa do limite do revisor "
+                f"de IA ({max_chars}). Nada é truncado, então o arquivo não foi revisado.")
         if current and size + rendered > max_chars:
             batches.append(current)
             current, size = [], 0
@@ -135,11 +136,13 @@ class GeminiProvider:
                     model=self._config.model, contents=user_content, config=config)
                 return json.loads(response.text)
             except Exception as exc:  # noqa: BLE001 - SDK lança tipos variados
-                status = getattr(exc, "code", None)
-                retryable = not isinstance(status, int) or status in RETRYABLE_STATUS
-                logger.warning("Tentativa %d/%d falhou: %s", attempt,
-                               self._config.max_attempts, type(exc).__name__)
-                if attempt == self._config.max_attempts or not retryable:
+                status = _http_status(exc)
+                retryable = status is None or status in RETRYABLE_STATUS
+                last = attempt == self._config.max_attempts or not retryable
+                logger.warning("Tentativa %d/%d falhou: %s%s", attempt, self._config.max_attempts,
+                               f"HTTP {status}" if status else type(exc).__name__,
+                               "" if last else f"; nova tentativa em {2 ** attempt}s")
+                if last:
                     raise
                 time.sleep(2 ** attempt)
         raise AssertionError("inalcançável")
@@ -149,6 +152,51 @@ def build_provider(config, api_key):
     if config.provider == "gemini":
         return GeminiProvider(config, api_key)
     raise GovernanceError(f"Provedor de LLM não suportado: {config.provider}")
+
+
+# ---------------------------------------------------------------- erros
+
+RERUN = "rode de novo (Re-run all jobs no check governance)"
+PLATFORM = "Se repetir, avise o time de plataforma."
+
+
+def _http_status(exc):
+    status = getattr(exc, "code", None)  # google.genai.errors.APIError.code
+    return status if isinstance(status, int) else None
+
+
+def llm_run_error(reviewer, exc):
+    """Traduz a falha do provedor em causa e ação para quem abriu o PR."""
+    who = f"Revisor de IA ({reviewer})"
+    status = _http_status(exc)
+    if status == 429:
+        return RunError("llm_unavailable", f"{who} sem cota no provedor de LLM (HTTP 429).",
+                        f"Não é problema no seu código. Aguarde a cota renovar e {RERUN}.")
+    if status in RETRYABLE_STATUS:
+        return RunError("llm_unavailable",
+                        f"{who} indisponível: o provedor de LLM respondeu HTTP {status} "
+                        "(sobrecarga ou falha do provedor).",
+                        f"Não é problema no seu código. Aguarde alguns minutos e {RERUN}.")
+    if status is None and isinstance(exc, OSError):  # timeout, conexão recusada, DNS
+        return RunError("llm_unavailable",
+                        f"{who} indisponível: sem resposta do provedor de LLM "
+                        f"({type(exc).__name__}).",
+                        f"Não é problema no seu código. Aguarde alguns minutos e {RERUN}.")
+    if status in (401, 403):
+        return RunError("llm_failure", f"{who}: a chave do provedor de LLM foi recusada "
+                                       f"(HTTP {status}).",
+                        "Verifique o segredo GEMINI_API_KEY em Settings → Secrets and "
+                        "variables → Actions do repositório.")
+    if status is not None:
+        return RunError("llm_failure", f"{who}: o provedor de LLM recusou a requisição "
+                                       f"(HTTP {status}); modelo ou parâmetro inválido no bundle.",
+                        "Problema na configuração central, não no seu código. Avise o time "
+                        "de plataforma.")
+    if isinstance(exc, ValueError):  # inclui json.JSONDecodeError
+        return RunError("llm_failure", f"{who}: resposta do modelo fora do formato esperado.",
+                        f"{RERUN[0].upper()}{RERUN[1:]}. {PLATFORM}")
+    return RunError("llm_failure", f"{who}: falha inesperada ({type(exc).__name__}).",
+                    f"{RERUN[0].upper()}{RERUN[1:]}. {PLATFORM}")
 
 
 # ---------------------------------------------------------------- execução
@@ -196,7 +244,10 @@ def run_llm(policies, files, provider, config):
             batches = batch_files(scoped, config.max_input_chars)
             jobs += [(reviewer, group, batch) for batch in batches]
         except GovernanceError as exc:
-            errors.append(f"[{reviewer}] {exc}")
+            errors.append(RunError(
+                "input_too_large", f"Revisor de IA ({reviewer}): {exc}",
+                "Se o arquivo for gerado (lockfile, minificado, snapshot), peça ao time de "
+                "plataforma para tirá-lo do escopo da política. Se for código, divida o arquivo."))
 
     findings, discarded = [], 0
     if not jobs:
@@ -210,5 +261,5 @@ def run_llm(policies, files, provider, config):
                 findings += accepted
                 discarded += dropped
             except Exception as exc:  # noqa: BLE001 - bloqueia, sem derrubar os outros revisores
-                errors.append(f"[{reviewer}] falha na revisão LLM: {type(exc).__name__}")
+                errors.append(llm_run_error(reviewer, exc))
     return findings, errors, discarded

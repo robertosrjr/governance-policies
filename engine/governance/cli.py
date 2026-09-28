@@ -17,9 +17,9 @@ from .evaluation import coverage_problems, format_report, gate, load_cases, run_
 from .export import write_exports
 from .github import publish_comment
 from .llm import PROMPTS_DIR, build_provider
-from .model import GovernanceError
+from .model import GovernanceError, RunError
 from .policy import load_policies, policies_digest
-from .report import build_markdown, build_sarif
+from .report import build_config_error_markdown, build_markdown, build_sarif
 from .review import ADRS_DIR, POLICIES_DIR, ROOT, WAIVERS_DIR, evaluate, load_bundle
 from .waivers import load_waivers
 
@@ -67,13 +67,62 @@ def _provider(args, bundle):
     return build_provider(bundle.llm, api_key)
 
 
+def _secret_scan_errors():
+    """Resultado do gitleaks (passo anterior do workflow) no mesmo veredito do motor.
+
+    Sem isso, o comentário diria "Aprovado" enquanto o check fica vermelho pelo gitleaks.
+    Fora do CI a variável não existe e nada é acrescentado.
+    """
+    code = os.environ.get("GITLEAKS_EXIT")
+    if code is None or code.strip() == "0":
+        return []
+    if code.strip() == "1":
+        return [RunError(
+            "secret_scan", "O gitleaks encontrou possível segredo em um dos commits do PR.",
+            "Veja o alerta em Security → Code scanning (categoria gitleaks). Se for credencial "
+            "real, revogue-a: apagar no commit seguinte não a remove do histórico.")]
+    return [RunError(
+        "secret_scan", f"O gitleaks não concluiu a varredura (código {code.strip() or 'ausente'}).",
+        "Rode de novo (Re-run all jobs no check governance). Se repetir, avise o time de "
+        "plataforma.")]
+
+
+def _annotate(errors):
+    """Anotações ::error:: aparecem em destaque na página da execução do GitHub Actions."""
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    for error in errors:
+        text = f"{error['message']} {error['action']}".replace("%", "%25").replace("\n", " ")
+        print(f"::error title=Governança::{text}", flush=True)
+
+
 def cmd_review(args):
+    pr = os.environ.get("PR_NUMBER", "").strip()
+    try:
+        return _review(args, pr)
+    except GovernanceError as exc:
+        # Sem veredito possível (ex.: base do diff inexistente): explica no PR antes de sair.
+        markdown = build_config_error_markdown(str(exc))
+        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(summary_path, "a", encoding="utf-8") as summary:
+                summary.write(markdown + "\n")
+        if args.publish_comment and pr:
+            try:
+                publish_comment(os.environ.get("GITHUB_REPOSITORY", ""), pr,
+                                os.environ.get("GITHUB_TOKEN", ""), markdown)
+            except Exception as publish_exc:  # noqa: BLE001 - não pode esconder o erro original
+                logger.warning("Não foi possível comentar o erro no PR: %s", publish_exc)
+        _annotate([{"message": "Erro de configuração: o motor não avaliou o PR.",
+                    "action": str(exc)}])
+        raise
+
+
+def _review(args, pr):
     policies, waivers, waiver_warnings = _load_all()
     bundle = load_bundle()
     repo = Path(args.repo).resolve()
     files = collect_changes(repo, args.base)
     logger.info("Arquivos alterados: %d", len(files))
-    pr = os.environ.get("PR_NUMBER", "").strip()
     subject = {
         "repository": os.environ.get("GITHUB_REPOSITORY", repo.name),
         "commit": _head_commit(repo),
@@ -86,6 +135,7 @@ def cmd_review(args):
         governance_ref=os.environ.get("GOVERNANCE_REF") or None,
         policies_digest=policies_digest(POLICIES_DIR),
         llm_required=not args.no_llm, extra_warnings=waiver_warnings,
+        extra_errors=_secret_scan_errors(),
     )
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -105,7 +155,8 @@ def cmd_review(args):
                     violation["file"], violation["line"], violation["source"],
                     ", bloqueia" if violation["blocking"] else "")
     for error in result["errors"]:
-        logger.error("  %s", error)
+        logger.error("  %s -> %s", error["message"], error["action"])
+    _annotate(result["errors"])
     logger.info("Veredito: %s. %s", result["status"], result["summary"])
     return 0 if result["status"] == "APPROVED" else 1
 

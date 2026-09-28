@@ -10,7 +10,8 @@ Qualquer erro de execução bloqueia (fail-closed).
 
 from . import __version__
 
-RESULT_SCHEMA_VERSION = "1.0"
+# 1.1: `errors` passou de texto para {kind, message, action}.
+RESULT_SCHEMA_VERSION = "1.1"
 
 
 def mark_blocking(findings, policies_by_id):
@@ -35,11 +36,17 @@ def _adr_compliance(evaluated, active):
     return dict(sorted(status.items()))
 
 
-def _summary(status, blocking, active, errors):
-    if errors:
-        return f"Bloqueado: {len(errors)} erro(s) de execução impedem um veredito confiável."
-    if status == "BLOCKED":
-        return f"Bloqueado: {len(blocking)} violação(ões) bloqueante(s)."
+def _summary(blocking, active, errors):
+    # Violações e erros aparecem juntos: um erro não pode esconder uma violação real.
+    reasons = []
+    if blocking:
+        reasons.append(f"{len(blocking)} violação(ões) bloqueante(s)")
+    if errors and all(e.kind == "llm_unavailable" for e in errors):
+        reasons.append("revisor de IA indisponível")
+    elif errors:
+        reasons.append(f"{len(errors)} erro(s) de execução impedem um veredito confiável")
+    if reasons:
+        return "Bloqueado: " + " e ".join(reasons) + "."
     if active:
         return f"Aprovado com {len(active)} achado(s) não bloqueante(s)."
     return "Aprovado: nenhuma violação nas políticas avaliadas."
@@ -59,7 +66,7 @@ def build_result(*, evaluated, findings, errors, warnings, subject, bundle, stat
     return {
         "schema_version": RESULT_SCHEMA_VERSION,
         "status": status,
-        "summary": _summary(status, blocking, active, errors),
+        "summary": _summary(blocking, active, errors),
         "subject": subject,
         "bundle": {"engine_version": __version__, **bundle},
         "policies_evaluated": [{"id": p.id, "version": p.version, "mode": p.mode}
@@ -68,7 +75,7 @@ def build_result(*, evaluated, findings, errors, warnings, subject, bundle, stat
                                           [(f, policies_by_id[f.policy_id]) for f in active]),
         "violations": [with_mode(f) for f in active],
         "waived": [with_mode(f) for f in waived],
-        "errors": list(errors),
+        "errors": [e.as_dict() for e in errors],
         "warnings": list(warnings),
         "stats": stats,
     }

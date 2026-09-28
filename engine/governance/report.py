@@ -29,6 +29,49 @@ def _table(findings):
     return "\n".join(header + [_row(f) for f in findings])
 
 
+def _errors_section(result):
+    errors = result["errors"]
+    only_llm_down = all(e["kind"] == "llm_unavailable" for e in errors)
+    if only_llm_down:
+        lines = ["### ⚠️ Revisor de IA indisponível",
+                 "O PR fica bloqueado porque a revisão não pôde ser concluída (fail-closed)."]
+    else:
+        lines = ["### ❗ Erros de execução (fail-closed)",
+                 "A revisão não pôde ser concluída. O PR fica bloqueado até o erro ser resolvido."]
+    if any(v["blocking"] for v in result["violations"]):
+        lines.append("Além do erro, as regras que rodaram encontraram violação bloqueante "
+                     "(veja **Achados**).")
+    else:
+        lines.append("As regras que rodaram não encontraram violação bloqueante.")
+    actions = {e["action"] for e in errors}
+    if len(actions) == 1:  # ex.: os três revisores fora do ar pelo mesmo motivo
+        bullets = "\n".join(f"- {sanitize(e['message'])}" for e in errors)
+        return "\n\n".join([*lines, bullets, f"**O que fazer:** {sanitize(actions.pop())}"])
+    bullets = "\n".join(f"- **{sanitize(e['message'])}** {sanitize(e['action'])}"
+                        for e in errors)
+    return "\n\n".join([*lines, bullets])
+
+
+def build_config_error_markdown(message):
+    """Comentário quando o motor nem chega a avaliar (ex.: base do diff inexistente)."""
+    return "\n\n".join([
+        COMMENT_MARKER,
+        "## 🛡️ Governança — ❌ Bloqueado",
+        "### ❗ Erro de configuração",
+        "O motor não conseguiu avaliar o PR, então nenhuma regra rodou. O PR fica bloqueado "
+        "(fail-closed).",
+        f"```\n{sanitize_block(message)}\n```",
+        "Isso costuma ser configuração do pipeline, não do seu código. Rode de novo (Re-run "
+        "all jobs no check governance). Se repetir, avise o time de plataforma com o link "
+        "desta execução.",
+    ])
+
+
+def sanitize_block(text):
+    """Texto dentro de bloco de código: sem crases que fechem o bloco, com limite de tamanho."""
+    return str(text).replace("`", "'")[:2000]
+
+
 def build_markdown(result):
     icon = "✅ Aprovado" if result["status"] == "APPROVED" else "❌ Bloqueado"
     bundle = result["bundle"]
@@ -42,8 +85,7 @@ def build_markdown(result):
         f"LLM {sanitize(llm['model']) if llm else 'desligado'}</sub>",
     ]
     if result["errors"]:
-        parts.append("### Erros (fail-closed)\n" + "\n".join(f"- {sanitize(e)}"
-                                                          for e in result["errors"]))
+        parts.append(_errors_section(result))
     shown = [v for v in result["violations"] if v["mode"] != "audit"]
     if shown:
         parts.append("### Achados\n" + _table(shown))

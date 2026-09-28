@@ -91,9 +91,30 @@ def test_target_repo_cannot_weaken_the_reviewer(repo, tmp_path):
     assert {"ARCH-HEX-001", "GOV-SELF-001"} <= ids
 
 
-def test_review_config_error_exits_2(repo, tmp_path):
+def test_review_config_error_exits_2(repo, tmp_path, monkeypatch):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     assert main(["review", "--repo", str(repo), "--base", "nao-existe", "--no-llm",
                  "--out", str(tmp_path / "o")]) == 2
+    text = summary.read_text(encoding="utf-8")
+    assert "Erro de configuração" in text and "nenhuma regra rodou" in text
+
+
+def test_secret_found_by_gitleaks_is_part_of_the_verdict(repo, tmp_path, monkeypatch):
+    """Sem isso, o comentário diria "Aprovado" com o check vermelho pelo gitleaks."""
+    commit_files(repo, {"src/main/java/com/x/domain/A.java": "package com.x.domain;\n"})
+    monkeypatch.setenv("GITLEAKS_EXIT", "1")
+    code, result = _review(repo, tmp_path)
+    assert code == 1 and result["status"] == "BLOCKED"
+    assert result["errors"][0]["kind"] == "secret_scan"
+    assert "revogue" in result["errors"][0]["action"]
+
+
+def test_gitleaks_clean_does_not_add_errors(repo, tmp_path, monkeypatch):
+    commit_files(repo, {"src/main/java/com/x/domain/A.java": "package com.x.domain;\n"})
+    monkeypatch.setenv("GITLEAKS_EXIT", "0")
+    code, result = _review(repo, tmp_path)
+    assert code == 0 and result["errors"] == []
 
 
 def test_git_fixture_sanity(repo):

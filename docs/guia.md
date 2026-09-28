@@ -406,7 +406,9 @@ a bloquear ou mudança no formato do `result.json`.
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | A execução aparece com o nome do arquivo (`.github/workflows/governance.yml`) e falha na hora | A tag do `uses:` não existe neste repositório, ou o repositório é privado sem acesso liberado | `git ls-remote --tags origin` aqui; publique a tag. Se for privado, *Settings → Actions → General → Access*. |
-| Check vermelho sem nenhuma violação no comentário | Erro de execução (fail-closed). Ex.: `GEMINI_API_KEY` ausente com políticas LLM no escopo | Veja o log do passo "Avaliar políticas" e a seção `errors` do `result.json` no artefato. Configure o segredo. |
+| Comentário "⚠️ Revisor de IA indisponível" | O provedor de LLM respondeu 503 (sobrecarga), 429 (cota esgotada) ou não respondeu. O PR fica bloqueado (fail-closed), mas não é problema no código | Espere alguns minutos e clique em *Re-run all jobs*. O comentário diz se as regras que rodaram acharam alguma violação. |
+| Comentário "❗ Erros de execução" | Chave recusada, segredo ausente, arquivo grande demais para o revisor ou gitleaks com segredo | Cada erro vem com **O que fazer**. Os mesmos textos aparecem como anotações na página da execução. |
+| Comentário "❗ Erro de configuração" | O motor nem conseguiu avaliar (ex.: base do diff inexistente) | Rode de novo. Se repetir, avise o time de plataforma com o link da execução. |
 | O check exigido não aparece para escolher no ruleset | O GitHub só lista checks que já rodaram uma vez | Abra um PR primeiro, ou crie o ruleset pela API com o nome `governance / governance`. |
 | O PR não roda de novo depois de uma correção fora do PR (ex.: nova tag) | O workflow só dispara em abrir, push ou reabrir | Feche e reabra o PR, ou use *Re-run all jobs*. |
 | `GOV-SELF-001` em todo PR que mexe em `.github/` | Comportamento esperado | É um aviso para revisão humana. Não bloqueia. |

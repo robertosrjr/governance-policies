@@ -63,5 +63,23 @@ class Finding:
         }
 
 
+@dataclass(frozen=True)
+class RunError:
+    """Erro de execução: sempre bloqueia (fail-closed), mas não é defeito no código revisado.
+
+    `kind` diz ao relatório o que explicar; `action` diz a quem abriu o PR o que fazer.
+    """
+
+    kind: str  # "llm_unavailable" | "llm_not_configured" | "llm_failure" | "input_too_large" | "secret_scan"
+    message: str
+    action: str
+
+    def __str__(self):
+        return self.message
+
+    def as_dict(self):
+        return {"kind": self.kind, "message": self.message, "action": self.action}
+
+
 class GovernanceError(Exception):
     """Falha que torna o veredito inválido. O pipeline trata como bloqueio (fail-closed)."""
