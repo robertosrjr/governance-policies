@@ -1,0 +1,145 @@
+# Required workflow: aplicado aos repositórios-alvo por um ruleset da ORGANIZAÇÃO
+# (templates/org-ruleset.json), fixado em uma ref deste repositório. O repositório-alvo
+# não consegue editar, remover nem substituir este workflow (ADR-GOV-000, princípio 1).
+#
+# O motor, as políticas, os prompts e o modelo vêm deste repositório, na MESMA revisão
+# deste arquivo (github.workflow_sha). Nada do checkout do PR é lido como instrução.
+#
+# Modo conta pessoal (sem organização): o repo-alvo chama este arquivo como reusable
+# workflow (templates/target-repo/governance.yml). Nesse modo github.workflow_sha é do
+# repo-alvo, então a ref do motor vem de inputs.governance_ref. É mais fraco: o repo-alvo
+# pode editar a chamada (ADR-GOV-000, alternativas rejeitadas). Use só até existir a org.
+name: governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_call:
+    inputs:
+      governance_ref:
+        description: "Ref deste repositório (tag ou SHA); a mesma do 'uses:' do chamador"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write     # comentário do relatório
+  security-events: write   # SARIF no Code Scanning
+  id-token: write          # atestação (Sigstore)
+  attestations: write
+
+concurrency:
+  group: governance-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Repositório central. Fixo aqui (e não em variável) porque variáveis de repositório
+  # sobrescrevem as da organização: um admin do repo-alvo poderia apontar para outra fonte.
+  GOVERNANCE_REPOSITORY: robertosrjr/governance-policies
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout do repositório-alvo (dado não confiável)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout do motor de governança (mesma revisão deste workflow)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.GOVERNANCE_REPOSITORY }}
+          ref: ${{ inputs.governance_ref || github.workflow_sha }}
+          token: ${{ secrets.GOVERNANCE_READ_TOKEN || github.token }}
+          path: governance
+          persist-credentials: false
+
+      - name: Configurar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências (hash obrigatório)
+        run: pip install --no-deps --require-hashes -r governance/engine/requirements.lock
+
+      - name: gitleaks nos commits do PR
+        id: gitleaks
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -sSfL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          set +e
+          # Varre cada commit do PR: pega também segredo adicionado e removido depois.
+          ./gitleaks git target --log-opts="origin/${BASE_REF}..HEAD" --redact \
+            --report-format sarif --report-path out/gitleaks.sarif --exit-code 1
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Avaliar políticas
+        id: review
+        env:
+          PYTHONPATH: governance/engine
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          GOVERNANCE_REF: ${{ inputs.governance_ref || github.workflow_sha }}
+        run: |
+          set +e
+          python -m governance review --repo target --base "origin/${BASE_REF}" \
+            --out out --publish-comment
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar SARIF do motor
+        if: always() && hashFiles('out/results.sarif') != ''
+        continue-on-error: true   # interface; o veredito é o passo final
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: out/results.sarif
+          category: governance
+          checkout_path: target
+
+      - name: Publicar SARIF do gitleaks
+        if: always() && hashFiles('out/gitleaks.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: out/gitleaks.sarif
+          category: gitleaks
+          checkout_path: target
+
+      - name: Atestar o resultado (evidência para o gate de deploy)
+        if: always() && hashFiles('out/result.json') != '' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: out/result.json
+          predicate-type: https://github.com/robertosrjr/governance-policies/governance-result/v1
+          predicate-path: out/result.json
+
+      - name: Guardar evidência
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: governance-${{ github.event.pull_request.head.sha }}
+          path: out/
+          retention-days: 90
+
+      - name: Veredito (fail-closed)
+        if: always()
+        env:
+          REVIEW_EXIT: ${{ steps.review.outputs.exit }}
+          GITLEAKS_EXIT: ${{ steps.gitleaks.outputs.exit }}
+        run: |
+          echo "motor=${REVIEW_EXIT:-ausente} gitleaks=${GITLEAKS_EXIT:-ausente}"
+          test "${REVIEW_EXIT}" = "0" && test "${GITLEAKS_EXIT}" = "0"

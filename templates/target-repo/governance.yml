@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   governance:
-    uses: robertosrjr/PlatEnterpriseGovSecLLMOps/.github/workflows/governance-required.yml@v1.0.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.0.0
     with:
       governance_ref: v1.0.0
     secrets: inherit

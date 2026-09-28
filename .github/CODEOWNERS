@@ -1,0 +1,18 @@
+# Repositório central de governança. Troque os usuários por times (@org/time) ao migrar
+# para a organização. Com "Require review from Code Owners" no ruleset do main, nenhuma
+# política, waiver, prompt ou mudança de modelo entra sem o dono aprovar.
+*                          @robertosrjr
+
+/engine/                   @robertosrjr
+/engine/bundle.yaml        @robertosrjr
+/engine/governance/prompts/ @robertosrjr
+/.github/                  @robertosrjr
+
+/policies/ARCH-*           @robertosrjr
+/policies/LGPD-*           @robertosrjr
+/policies/SEC-*            @robertosrjr
+/policies/LLM-*            @robertosrjr
+/policies/OWASP-*          @robertosrjr
+
+# Waivers: aprovador deve ser de AppSec e diferente de quem pediu (validado pelo motor).
+/waivers/                  @robertosrjr

@@ -6,7 +6,7 @@
   "bypass_actors": [],
   "conditions": {
     "ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []},
-    "repository_name": {"include": ["~ALL"], "exclude": ["PlatEnterpriseGovSecLLMOps"]}
+    "repository_name": {"include": ["~ALL"], "exclude": ["governance-policies"]}
   },
   "rules": [
     {

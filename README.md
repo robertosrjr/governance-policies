@@ -81,8 +81,8 @@ O deploy de um commit só prossegue com um `result.json` atestado e aprovado par
 ```bash
 gh run download <run-id> -R org/app -n "governance-${SHA}" -D evidence
 gh attestation verify evidence/result.json -R org/app \
-  --predicate-type https://github.com/robertosrjr/PlatEnterpriseGovSecLLMOps/governance-result/v1 \
-  --signer-workflow robertosrjr/PlatEnterpriseGovSecLLMOps/.github/workflows/governance-required.yml
+  --predicate-type https://github.com/robertosrjr/governance-policies/governance-result/v1 \
+  --signer-workflow robertosrjr/governance-policies/.github/workflows/governance-required.yml
 jq -e --arg sha "$SHA" '.status == "APPROVED" and .subject.commit == $sha' evidence/result.json
 ```
 
