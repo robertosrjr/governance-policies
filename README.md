@@ -4,6 +4,9 @@ Políticas-como-código avaliadas em todo Pull Request da organização, com reg
 determinísticas como base, revisão semântica por LLM apenas como camada aditiva, e
 evidência atestada por commit.
 
+**Guia completo** (regras, funcionamento, como usar, como aplicar, boas práticas e
+problemas comuns): [docs/guia.md](docs/guia.md).
+
 Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md).
 Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 `docs/Governança SecLLMOps Enterprise.docx`.
@@ -73,6 +76,92 @@ Sem organização não há required workflow. O repo-alvo chama o workflow centr
 Limite conhecido: o PR pode editar ou remover a chamada (ADR-GOV-000, alternativas
 rejeitadas). O CODEOWNERS e o check obrigatório só reduzem esse risco. Migre para o
 ruleset da organização antes de tratar o resultado como controle.
+
+### O que acontece em um PR, passo a passo
+
+Exemplo com a PoC `robertosrjr/virtualthreads`, que chama este repositório na tag `v1.0.0`.
+
+```mermaid
+flowchart LR
+    A[PR na PoC] --> B[governance.yml<br/>da PoC]
+    B -- "uses: ...@v1.0.0<br/>secrets: inherit" --> C[governance-required.yml<br/>deste repositório]
+    C --> D[gitleaks + motor]
+    D --> E{Veredito}
+    E -- APPROVED --> F[check verde:<br/>ruleset libera o merge]
+    E -- BLOCKED ou erro --> G[check vermelho:<br/>ruleset bloqueia o merge]
+```
+
+**1. Alguém abre um PR na PoC** (ou faz push no branch dele, ou reabre o PR).
+
+**2. O workflow da PoC dispara.** O arquivo `.github/workflows/governance.yml` da PoC diz
+só *quando* rodar e *qual versão* usar:
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]   # abrir, novo push, reabrir
+jobs:
+  governance:
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.0.0
+    with:
+      governance_ref: v1.0.0                  # a mesma tag do 'uses:'
+    secrets: inherit                          # repassa o GEMINI_API_KEY da PoC
+```
+
+**3. O workflow central roda** ([governance-required.yml](.github/workflows/governance-required.yml)),
+em um runner do GitHub:
+
+| Passo do workflow | O que faz |
+|---|---|
+| Checkout do repositório-alvo | Baixa o código do PR em `target/`. É tratado como **dado**, nunca como instrução. |
+| Checkout do motor | Baixa **este** repositório na tag `v1.0.0` em `governance/`: motor, políticas, prompts e modelo. |
+| Instalar dependências | `pip install --require-hashes`: só instala pacotes com hash conferido. |
+| gitleaks | Procura segredos em **cada commit** do PR, inclusive nos já apagados. |
+| Avaliar políticas | `python -m governance review`: aplica as regras determinísticas (T0) e o LLM (T1) no diff e comenta o relatório no PR. |
+| Publicar SARIF | Envia os achados para o Code Scanning. Aparecem como os checks `enterprise-governance` e `gitleaks`. |
+| Atestar o resultado | Assina o `result.json` (Sigstore). É a evidência do gate de deploy. |
+| Guardar evidência | Salva `out/` como artefato `governance-<sha>` por 90 dias. |
+| Veredito | Só passa se o motor **e** o gitleaks terminarem com 0. Qualquer erro reprova (fail-closed). |
+
+**4. O resultado vira o check `governance / governance`** (job da PoC / job central). O
+ruleset `protecao-main` da PoC exige esse check e um PR para a `main`:
+
+- ✅ verde: o botão de merge é liberado;
+- ❌ vermelho: o merge fica bloqueado, e o comentário do motor no PR diz a política, o
+  arquivo e a linha.
+
+### O que saiu da PoC e para onde foi
+
+Antes, a PoC tinha o próprio pipeline de IA (`ai-governance.yml` + `.github/scripts/orchestrator.py`).
+O passo que chamava o Gemini veio para o workflow central:
+
+| Antes, na PoC | Agora |
+|---|---|
+| `run: python .github/scripts/orchestrator.py` | `python -m governance review`, com o motor **deste** repositório. O script antigo vinha do próprio PR, então o PR podia alterar o revisor. |
+| `GEMINI_API_KEY`, `GITHUB_TOKEN`, `PR_NUMBER`, `BASE_REF` | As mesmas variáveis, no passo "Avaliar políticas" do workflow central. |
+| `GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}` | Removido de propósito. O modelo fica em [engine/bundle.yaml](engine/bundle.yaml), para o repositório revisado não poder escolher um modelo mais fraco. |
+
+Na PoC ficam só o **segredo** `GEMINI_API_KEY` (em *Settings → Secrets and variables →
+Actions*) e o `governance.yml`. A variável `GEMINI_MODEL` pode ser apagada.
+
+### Testar o bloqueio
+
+Em um branch novo da PoC, coloque uma dependência de framework no domínio, por exemplo
+`import org.springframework.stereotype.Component;` em uma classe de
+`application/pedidos/src/main/java/.../domain/`, e abra um PR. O esperado é
+`ARCH-HEX-001` (CRITICAL), o check `governance / governance` vermelho e o merge bloqueado.
+Feche o PR sem merge. Para ver o mesmo resultado antes do push:
+
+```bash
+PYTHONPATH=engine python -m governance review --repo ../../java/virtualthreads --base origin/main --no-llm
+```
+
+### Publicar uma nova versão das políticas
+
+1. Commit e push na `main` deste repositório.
+2. Nova tag, sem mover as antigas: `git tag -a v1.1.0 -m "..."` e `git push origin v1.1.0`.
+3. Na PoC, troque a tag nos **dois** lugares do `governance.yml` (`@v1.1.0` no `uses:` e
+   `governance_ref: v1.1.0`) e faça isso por PR: o próprio PR já roda na versão nova.
 
 ## Gate de deploy
 
