@@ -87,6 +87,9 @@ jobs:
 
       - name: Avaliar políticas
         id: review
+        # Roda mesmo se o gitleaks falhar (ex.: download indisponível): o PR continua
+        # bloqueado, mas recebe o comentário com o motivo em vez de só um X vermelho.
+        if: success() || steps.gitleaks.outcome == 'failure'
         env:
           PYTHONPATH: governance/engine
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

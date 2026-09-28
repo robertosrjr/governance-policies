@@ -92,6 +92,24 @@ class ApiError(Exception):
         self.code = code
 
 
+def test_sdk_timeout_counts_as_provider_unavailable(policies, bundle):
+    """Com timeout configurado, o SDK lança httpx.ReadTimeout (não é OSError)."""
+    import httpx
+    result = run(policies, bundle, {USECASE: TOSTRING_LOG},
+                 FakeProvider(error=httpx.ReadTimeout("timed out")))
+    assert result["errors"][0]["kind"] == "llm_unavailable"
+    assert "ReadTimeout" in result["errors"][0]["message"]
+
+
+def test_gemini_client_has_request_timeout(monkeypatch, bundle):
+    from google import genai
+    from governance.llm import REQUEST_TIMEOUT_MS, GeminiProvider
+    captured = {}
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: captured.update(kwargs))
+    GeminiProvider(bundle.llm, "chave")
+    assert captured["http_options"].timeout == REQUEST_TIMEOUT_MS
+
+
 def test_llm_failure_is_fail_closed(policies, bundle):
     result = run(policies, bundle, {USECASE: TOSTRING_LOG}, FakeProvider(error=TimeoutError()))
     assert result["status"] == "BLOCKED"

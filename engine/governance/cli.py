@@ -87,6 +87,22 @@ def _secret_scan_errors():
         "plataforma.")]
 
 
+def _publish_or_warn(repository, pr, markdown):
+    """O comentário é interface; o veredito é o código de saída.
+
+    Falhar ao comentar (ex.: PR de fork, cujo token é só leitura) não pode derrubar o
+    motor nem mudar o veredito. O relatório continua no resumo da execução e no artefato.
+    """
+    try:
+        publish_comment(repository, pr, os.environ.get("GITHUB_TOKEN", ""), markdown)
+    except Exception as exc:  # noqa: BLE001 - HTTP, rede, token: todos viram aviso
+        logger.warning("Não foi possível comentar no PR: %s", exc)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print("::warning title=Governança::Não foi possível publicar o comentário no PR "
+                  f"({type(exc).__name__}). O relatório está no resumo desta execução.",
+                  flush=True)
+
+
 def _annotate(errors):
     """Anotações ::error:: aparecem em destaque na página da execução do GitHub Actions."""
     if os.environ.get("GITHUB_ACTIONS") != "true":
@@ -107,11 +123,7 @@ def cmd_review(args):
             with open(summary_path, "a", encoding="utf-8") as summary:
                 summary.write(markdown + "\n")
         if args.publish_comment and pr:
-            try:
-                publish_comment(os.environ.get("GITHUB_REPOSITORY", ""), pr,
-                                os.environ.get("GITHUB_TOKEN", ""), markdown)
-            except Exception as publish_exc:  # noqa: BLE001 - não pode esconder o erro original
-                logger.warning("Não foi possível comentar o erro no PR: %s", publish_exc)
+            _publish_or_warn(os.environ.get("GITHUB_REPOSITORY", ""), pr, markdown)
         _annotate([{"message": "Erro de configuração: o motor não avaliou o PR.",
                     "action": str(exc)}])
         raise
@@ -149,7 +161,7 @@ def _review(args, pr):
         with open(summary_path, "a", encoding="utf-8") as summary:
             summary.write(markdown + "\n")
     if args.publish_comment:
-        publish_comment(subject["repository"], pr, os.environ["GITHUB_TOKEN"], markdown)
+        _publish_or_warn(subject["repository"], pr, markdown)
     for violation in result["violations"]:
         logger.info("  %-8s %-16s %s:%s (%s%s)", violation["severity"], violation["policy_id"],
                     violation["file"], violation["line"], violation["source"],

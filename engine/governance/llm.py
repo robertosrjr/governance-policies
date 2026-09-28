@@ -27,6 +27,7 @@ logger = logging.getLogger("governance.llm")
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+REQUEST_TIMEOUT_MS = 120_000  # por chamada; com 3 tentativas cabe no timeout do job (20 min)
 
 
 @dataclass(frozen=True)
@@ -120,7 +121,10 @@ class GeminiProvider:
         from google.genai import types
 
         self._types = types
-        self._client = genai.Client(api_key=api_key)
+        # Sem timeout explícito o SDK espera indefinidamente: uma chamada travada seguraria
+        # o PR até o limite do job. Timeout conta como indisponibilidade (nova tentativa).
+        self._client = genai.Client(
+            api_key=api_key, http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS))
         self._config = config
 
     def review(self, system_prompt, user_content, schema):
@@ -165,6 +169,17 @@ def _http_status(exc):
     return status if isinstance(status, int) else None
 
 
+def _network_failure(exc):
+    """Timeout, conexão recusada ou DNS. O SDK usa httpx, cujos erros não são OSError."""
+    if isinstance(exc, OSError):
+        return True
+    try:
+        import httpx  # dependência do SDK; ausente só no modo offline
+    except ImportError:
+        return False
+    return isinstance(exc, httpx.TransportError)
+
+
 def _key_rejected(status, exc):
     # O Gemini responde chave inválida com HTTP 400 (API_KEY_INVALID), não com 401/403.
     return status in (401, 403) or (
@@ -183,7 +198,7 @@ def llm_run_error(reviewer, exc):
                         f"{who} indisponível: o provedor de LLM respondeu HTTP {status} "
                         "(sobrecarga ou falha do provedor).",
                         f"Não é problema no seu código. Aguarde alguns minutos e {RERUN}.")
-    if status is None and isinstance(exc, OSError):  # timeout, conexão recusada, DNS
+    if status is None and _network_failure(exc):
         return RunError("llm_unavailable",
                         f"{who} indisponível: sem resposta do provedor de LLM "
                         f"({type(exc).__name__}).",

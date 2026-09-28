@@ -110,6 +110,33 @@ def test_secret_found_by_gitleaks_is_part_of_the_verdict(repo, tmp_path, monkeyp
     assert "revogue" in result["errors"][0]["action"]
 
 
+def test_comment_failure_does_not_change_the_verdict(repo, tmp_path, monkeypatch):
+    """PR de fork: o token é só leitura e o comentário falha com 403."""
+    import governance.cli as cli
+
+    def forbidden(*_args, **_kwargs):
+        raise OSError("HTTP Error 403: Resource not accessible by integration")
+
+    monkeypatch.setattr(cli, "publish_comment", forbidden)
+    monkeypatch.setenv("PR_NUMBER", "7")
+    commit_files(repo, {"src/main/java/com/x/domain/A.java":
+                        "package com.x.domain;\nimport jakarta.persistence.Entity;\n"})
+    out = tmp_path / "out"
+    code = main(["review", "--repo", str(repo), "--base", "main", "--no-llm",
+                 "--out", str(out), "--publish-comment"])
+    result = json.loads((out / "result.json").read_text(encoding="utf-8"))
+    assert code == 1 and result["status"] == "BLOCKED"  # veredito intacto, sem traceback
+
+
+def test_gitleaks_step_failure_is_explained(repo, tmp_path, monkeypatch):
+    """O passo do gitleaks falhou antes de gravar o código de saída (variável vazia)."""
+    commit_files(repo, {"src/main/java/com/x/domain/A.java": "package com.x.domain;\n"})
+    monkeypatch.setenv("GITLEAKS_EXIT", "")
+    code, result = _review(repo, tmp_path)
+    assert code == 1 and result["errors"][0]["kind"] == "secret_scan"
+    assert "não concluiu" in result["errors"][0]["message"]
+
+
 def test_gitleaks_clean_does_not_add_errors(repo, tmp_path, monkeypatch):
     commit_files(repo, {"src/main/java/com/x/domain/A.java": "package com.x.domain;\n"})
     monkeypatch.setenv("GITLEAKS_EXIT", "0")
