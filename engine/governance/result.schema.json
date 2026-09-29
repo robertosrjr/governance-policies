@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://governance.local/schemas/result-1.1.json",
+  "$id": "https://governance.local/schemas/result-1.2.json",
   "title": "Resultado da avaliação de governança (evidência atestada por commit)",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "status", "summary", "subject", "bundle", "policies_evaluated",
                "adr_compliance", "violations", "waived", "errors", "warnings", "stats"],
   "properties": {
-    "schema_version": {"const": "1.1"},
+    "schema_version": {"const": "1.2"},
     "status": {"enum": ["APPROVED", "BLOCKED"]},
     "summary": {"type": "string"},
     "subject": {
@@ -29,6 +29,12 @@
         "governance_ref": {"type": ["string", "null"]},
         "policies_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "llm": {
+          "type": ["object", "null"],
+          "required": ["provider", "model"],
+          "properties": {"provider": {"type": "string"}, "model": {"type": "string"}}
+        },
+        "jev": {
+          "description": "1.2: modelo de julgamento tipado (ADR-GOV-002); null se não usado",
           "type": ["object", "null"],
           "required": ["provider", "model"],
           "properties": {"provider": {"type": "string"}, "model": {"type": "string"}}

@@ -2,7 +2,7 @@
 # Trocar o modelo, a temperatura ou o orçamento é uma NOVA versão do bundle e exige
 # `python -m governance eval --llm` sem regressão (ver adrs/ADR-GOV-000, "LLMOps").
 # O repo-alvo não consegue sobrescrever nada daqui: não há variável de ambiente para isso.
-bundle_version: 1.1.0
+bundle_version: 1.2.0
 llm:
   # OpenRouter (ADR-GOV-001). A chave é OPENROUTER_API_KEY, repassada pelo repo-alvo.
   provider: openrouter
@@ -13,4 +13,14 @@ llm:
   max_input_chars: 150000
   # Teto da resposta. Sem ele a OpenRouter reserva a saída máxima do modelo (HTTP 402).
   max_output_tokens: 8192
+  max_attempts: 3
+# Julgamento tipado (ADR-GOV-002): políticas com `llm.engine: jev`. A chave é
+# TYPESAFE_API_KEY, repassada pelo repo-alvo. Versão fixa, não `jev-latest`: o alias muda
+# de modelo sem aviso e o eval deixaria de valer.
+jev:
+  provider: typesafe
+  model: jev-1.13.0
+  # Estado por requisição: arquivo revisado + arquivos do PR que ele cita. O Jev aceita
+  # 32k tokens de estado; 80 mil caracteres deixam folga. Acima disso, erro (nada é truncado).
+  max_input_chars: 80000
   max_attempts: 3

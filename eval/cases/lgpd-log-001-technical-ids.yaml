@@ -1,0 +1,28 @@
+id: lgpd-log-001-technical-ids
+description: 'Span, métrica e exceção só com identificadores técnicos e status: conforme.'
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/adapter/out/PedidoGateway.java: |
+    package com.empresa.pedidos.infrastructure.adapter.out;
+
+    import io.micrometer.core.instrument.Counter;
+    import io.micrometer.core.instrument.MeterRegistry;
+    import io.opentelemetry.api.trace.Span;
+
+    public class PedidoGateway {
+        private final MeterRegistry registry;
+
+        public PedidoGateway(MeterRegistry registry) {
+            this.registry = registry;
+        }
+
+        public void confirmar(String pedidoId, String status) {
+            Span.current().setAttribute("pedido.id", pedidoId);
+            Counter.builder("pedidos.confirmados").tag("status", status).register(registry).increment();
+            if (status == null) {
+                throw new IllegalStateException("Pedido " + pedidoId + " sem status");
+            }
+        }
+    }
+expect:
+  LGPD-LOG-001: false

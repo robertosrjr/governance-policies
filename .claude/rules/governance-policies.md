@@ -28,7 +28,7 @@ Classes em `domain` não podem depender de Spring (`org.springframework`) nem de
 - Escopo: `**/*.java`, `**/*.kt`
 - Verificação: motor (regex), LLM consultivo
 
-Nenhum dado pessoal (CPF, CNPJ, RG, e-mail, telefone, cartão, senha) pode chegar a logs, traces, métricas ou mensagens de exceção sem mascaramento. A regra do motor cobre o caso direto em uma linha (identificador pessoal como argumento de log fora de mask/sanitize/redact). Os casos indiretos (toString() de objeto com dado pessoal, corpo de request, atributo de span, tag de métrica, chamada de log quebrada em várias linhas) ficam com o LLM, em modo consultivo até o eval justificar bloqueio.
+Nenhum dado pessoal (CPF, CNPJ, RG, e-mail, telefone, cartão, senha) pode chegar a logs, traces, métricas ou mensagens de exceção sem mascaramento. A regra do motor cobre o caso direto em uma linha (identificador pessoal como argumento de log fora de mask/sanitize/redact). Os casos indiretos (toString() de objeto com dado pessoal, corpo de request, atributo de span, tag de métrica, chamada de log quebrada em várias linhas) ficam com o Jev: uma regex ampla marca as linhas que escrevem em log, span, métrica ou exceção, e o Jev julga cada uma (ADR-GOV-002). Consultivo até o eval justificar bloqueio.
 
 **Correção:** Passe o valor por `PIISanitizer.mask(valor)` antes de logar, ou registre só um identificador técnico (id do pedido, hash). Nunca logue o objeto inteiro nem o corpo de request/response.
 

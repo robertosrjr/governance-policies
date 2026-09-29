@@ -118,7 +118,8 @@ def batch_files(files, max_chars):
 # ---------------------------------------------------------------- provedores
 
 
-API_KEY_ENV = {"gemini": "GEMINI_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+API_KEY_ENV = {"gemini": "GEMINI_API_KEY", "openrouter": "OPENROUTER_API_KEY",
+               "typesafe": "TYPESAFE_API_KEY"}
 
 
 def api_key_env(provider):
@@ -269,9 +270,11 @@ class OpenRouterProvider:
 
 
 def _error_message(body):
+    """Mensagem do corpo de erro: OpenRouter usa `error`, TypeSafe usa `detail`."""
     try:
-        return json.loads(body)["error"]["message"]
-    except (ValueError, KeyError, TypeError):
+        data = json.loads(body)
+        return (data.get("error") or data.get("detail"))["message"]
+    except (ValueError, KeyError, TypeError, AttributeError):
         return body[:200].decode("utf-8", "replace")
 
 

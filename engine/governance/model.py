@@ -38,6 +38,11 @@ class Policy:
     def llm_blocking(self):
         return bool(self.llm and self.llm.get("blocking"))
 
+    @property
+    def llm_engine(self):
+        """None (sem LLM), "generative" (revisor que aponta achados) ou "jev" (ADR-GOV-002)."""
+        return self.llm.get("engine", "generative") if self.llm else None
+
 
 @dataclass
 class Finding:

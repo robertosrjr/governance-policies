@@ -82,7 +82,8 @@ def build_markdown(result):
         sanitize(result["summary"]),
         f"<sub>bundle {bundle['bundle_version']} · motor {bundle['engine_version']} · "
         f"políticas `{bundle['policies_digest'][:12]}` · "
-        f"LLM {sanitize(llm['model']) if llm else 'desligado'}</sub>",
+        f"LLM {sanitize(llm['model']) if llm else 'desligado'}"
+        f"{' · Jev ' + sanitize(bundle['jev']['model']) if bundle.get('jev') else ''}</sub>",
     ]
     if result["errors"]:
         parts.append(_errors_section(result))

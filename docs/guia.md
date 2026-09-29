@@ -213,7 +213,7 @@ avaliado). Esses arquivos orientam assistentes de IA, não o veredito.
 1. O PR é aberto no repositório-alvo, ou recebe um push, ou é reaberto.
 2. O `.github/workflows/governance.yml` do repositório-alvo chama o workflow central
    [governance-required.yml](../.github/workflows/governance-required.yml) numa **tag**
-   deste repositório (ex.: `v1.2.1`) e repassa só a chave da OpenRouter do projeto
+   deste repositório (ex.: `v1.3.0`) e repassa só as chaves do projeto (OpenRouter e TypeSafe)
    (`secrets: OPENROUTER_API_KEY: ...`; nunca `secrets: inherit`, que entrega todos).
 3. O workflow central:
    1. baixa o código do PR em `target/`, como dado;

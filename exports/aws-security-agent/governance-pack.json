@@ -1,6 +1,6 @@
 {
   "packName": "Enterprise-Governance-Pack",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Requisitos organizacionais derivados de policies/. GERADO por `python -m governance export`. Edite policies/*.yaml.",
   "securityRequirements": [
     {
@@ -12,7 +12,7 @@
     },
     {
       "name": "lgpd-log-001",
-      "description": "Dado pessoal em logs, traces, métricas ou exceções. Nenhum dado pessoal (CPF, CNPJ, RG, e-mail, telefone, cartão, senha) pode chegar a logs, traces, métricas ou mensagens de exceção sem mascaramento. A regra do motor cobre o caso direto em uma linha (identificador pessoal como argumento de log fora de mask/sanitize/redact). Os casos indiretos (toString() de objeto com dado pessoal, corpo de request, atributo de span, tag de métrica, chamada de log quebrada em várias linhas) ficam com o LLM, em modo consultivo até o eval justificar bloqueio.",
+      "description": "Dado pessoal em logs, traces, métricas ou exceções. Nenhum dado pessoal (CPF, CNPJ, RG, e-mail, telefone, cartão, senha) pode chegar a logs, traces, métricas ou mensagens de exceção sem mascaramento. A regra do motor cobre o caso direto em uma linha (identificador pessoal como argumento de log fora de mask/sanitize/redact). Os casos indiretos (toString() de objeto com dado pessoal, corpo de request, atributo de span, tag de métrica, chamada de log quebrada em várias linhas) ficam com o Jev: uma regex ampla marca as linhas que escrevem em log, span, métrica ou exceção, e o Jev julga cada uma (ADR-GOV-002). Consultivo até o eval justificar bloqueio.",
       "applicability": "Código Java/Kotlin de produção que escreve logs, spans, métricas ou exceções.",
       "complianceCriteria": "COMPLIANT if personal data is masked (PIISanitizer.mask) or replaced by technical identifiers before reaching logs, traces, metrics or exception messages. NON_COMPLIANT if CPF, CNPJ, RG, e-mail, phone, card or password values reach logs, traces, metric tags or exception messages unmasked.",
       "remediationGuidance": "Passe o valor por `PIISanitizer.mask(valor)` antes de logar, ou registre só um identificador técnico (id do pedido, hash). Nunca logue o objeto inteiro nem o corpo de request/response."

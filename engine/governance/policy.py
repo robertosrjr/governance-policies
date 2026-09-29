@@ -92,6 +92,11 @@ def _semantic_errors(data, path, adrs_dir):
                 except re.error as exc:
                     errors.append(f"{path.name}: regex inválida em {key}: {exc}")
     llm = data.get("enforcement", {}).get("llm")
+    if llm and "candidates" in llm:
+        try:
+            re.compile(llm["candidates"])
+        except re.error as exc:
+            errors.append(f"{path.name}: regex inválida em llm.candidates: {exc}")
     if llm and llm.get("blocking") and not llm.get("eval_evidence"):
         errors.append(f"{path.name}: llm.blocking=true exige llm.eval_evidence (resultado de eval)")
     return errors

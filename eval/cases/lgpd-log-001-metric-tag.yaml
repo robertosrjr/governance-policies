@@ -1,0 +1,26 @@
+id: lgpd-log-001-metric-tag
+description: E-mail do cliente como tag de métrica (vazamento e cardinalidade).
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/infrastructure/metrics/PedidoMetrics.java: |
+    package com.empresa.pedidos.infrastructure.metrics;
+
+    import io.micrometer.core.instrument.Counter;
+    import io.micrometer.core.instrument.MeterRegistry;
+
+    public class PedidoMetrics {
+        private final MeterRegistry registry;
+
+        public PedidoMetrics(MeterRegistry registry) {
+            this.registry = registry;
+        }
+
+        public void pedidoCriado(String emailCliente) {
+            Counter.builder("pedidos.criados")
+                .tag("cliente", emailCliente)
+                .register(registry)
+                .increment();
+        }
+    }
+expect:
+  LGPD-LOG-001: true

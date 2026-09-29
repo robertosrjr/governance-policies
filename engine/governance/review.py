@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from .deterministic import run_deterministic
+from .jev import run_jev
 from .llm import LlmConfig, api_key_env, run_llm
 from .model import RunError
 from .policy import select_policies
@@ -24,43 +25,59 @@ TARGET = "pr-review"
 class Bundle:
     version: str
     llm: LlmConfig
+    jev: LlmConfig | None = None  # julgamento tipado (ADR-GOV-002)
 
 
 def load_bundle(path=BUNDLE_FILE):
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    return Bundle(version=data["bundle_version"], llm=LlmConfig(**data["llm"]))
+    jev = LlmConfig(**data["jev"]) if data.get("jev") else None
+    return Bundle(version=data["bundle_version"], llm=LlmConfig(**data["llm"]), jev=jev)
 
 
-def run_layers(files, policies, provider, llm_config, llm_required):
+def _not_configured(policies, config, llm_required, errors, warnings):
+    ids = ", ".join(p.id for p in policies)
+    if not llm_required:
+        warnings.append(f"LLM desligado (--no-llm): {ids} não foram avaliadas.")
+        return
+    key_env = api_key_env(config.provider) if config else "a chave do provedor"
+    errors.append(RunError(
+        "llm_not_configured",
+        f"Revisor de IA não configurado (sem {key_env}): {ids} não foram avaliadas.",
+        f"Crie o segredo {key_env} em Settings → Secrets and variables → Actions "
+        "do repositório e rode de novo."))
+
+
+def run_layers(files, policies, provider, llm_config, llm_required, jev_provider=None,
+               jev_config=None):
     """Executa T0 e T1. Retorna (políticas avaliadas, achados, erros, avisos, descartados)."""
     evaluated = select_policies(policies, files, TARGET)
     findings = run_deterministic(evaluated, files)
-    errors, warnings, discarded = [], [], 0
-    semantic = [p for p in evaluated if p.llm]
-    if semantic and provider is None:
-        ids = ", ".join(p.id for p in semantic)
-        if llm_required:
-            key_env = api_key_env(llm_config.provider)
-            errors.append(RunError(
-                "llm_not_configured",
-                f"Revisor de IA não configurado (sem {key_env}): {ids} não foram avaliadas.",
-                f"Crie o segredo {key_env} em Settings → Secrets and variables → Actions "
-                "do repositório e rode de novo."))
-        else:
-            warnings.append(f"LLM desligado (--no-llm): {ids} não foram avaliadas.")
-    elif semantic:
-        llm_findings, llm_errors, discarded = run_llm(semantic, files, provider, llm_config)
-        known = {(f.policy_id, f.file, f.line) for f in findings}
-        # T1 só acrescenta: duplicatas de T0 são descartadas, nada de T0 é removido
-        findings += [f for f in llm_findings if (f.policy_id, f.file, f.line) not in known]
+    errors, warnings, discarded, semantic_findings = [], [], 0, []
+    generative = [p for p in evaluated if p.llm_engine == "generative"]
+    judged = [p for p in evaluated if p.llm_engine == "jev"]
+    if generative and provider is None:
+        _not_configured(generative, llm_config, llm_required, errors, warnings)
+    elif generative:
+        llm_findings, llm_errors, discarded = run_llm(generative, files, provider, llm_config)
+        semantic_findings += llm_findings
         errors += llm_errors
+    if judged and jev_provider is None:
+        _not_configured(judged, jev_config, llm_required, errors, warnings)
+    elif judged:
+        jev_findings, jev_errors = run_jev(judged, files, jev_provider, jev_config)
+        semantic_findings += jev_findings
+        errors += jev_errors
+    known = {(f.policy_id, f.file, f.line) for f in findings}
+    # T1 só acrescenta: duplicatas de T0 são descartadas, nada de T0 é removido
+    findings += [f for f in semantic_findings if (f.policy_id, f.file, f.line) not in known]
     return evaluated, findings, errors, warnings, discarded
 
 
 def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_ref,
-             policies_digest, llm_required, extra_warnings=(), extra_errors=()):
+             policies_digest, llm_required, extra_warnings=(), extra_errors=(),
+             jev_provider=None):
     evaluated, findings, errors, warnings, discarded = run_layers(
-        files, policies, provider, bundle.llm, llm_required)
+        files, policies, provider, bundle.llm, llm_required, jev_provider, bundle.jev)
     errors = [*extra_errors, *errors]
     apply_waivers(findings, waivers, subject["repository"], subject["commit"])
     return build_result(
@@ -75,6 +92,8 @@ def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_
             "policies_digest": policies_digest,
             "llm": ({"provider": bundle.llm.provider, "model": bundle.llm.model}
                     if provider is not None else None),
+            "jev": ({"provider": bundle.jev.provider, "model": bundle.jev.model}
+                    if jev_provider is not None and bundle.jev else None),
         },
         stats={"files_changed": len(files), "llm_findings_discarded": discarded},
     )

@@ -97,10 +97,29 @@
     "llm_binding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reviewer", "criteria", "blocking"],
+      "required": ["blocking"],
       "properties": {
+        "engine": {
+          "description": "generative (padrão): revisor LLM que aponta achados. jev: a regex `candidates` localiza as linhas e o Jev julga cada uma (ADR-GOV-002)",
+          "enum": ["generative", "jev"]
+        },
         "reviewer": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
         "criteria": {"type": "string", "minLength": 20},
+        "candidates": {
+          "description": "jev: regex que marca as linhas adicionadas a julgar",
+          "type": "string"
+        },
+        "question": {
+          "description": "jev: pergunta de sim/não sobre UMA linha. {line} e {text} viram o número e o texto dela",
+          "type": "string",
+          "minLength": 20
+        },
+        "threshold": {
+          "description": "jev: probabilidade de 'sim' a partir da qual a linha vira achado",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
         "blocking": {
           "description": "true só com eval_evidence: achado do LLM passa a bloquear",
           "type": "boolean"
@@ -109,7 +128,10 @@
           "description": "Referência ao relatório de eval que justificou blocking=true",
           "type": "string"
         }
-      }
+      },
+      "if": {"required": ["engine"], "properties": {"engine": {"const": "jev"}}},
+      "then": {"required": ["candidates", "question", "threshold"]},
+      "else": {"required": ["reviewer", "criteria"]}
     }
   }
 }

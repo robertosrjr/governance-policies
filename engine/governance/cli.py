@@ -16,6 +16,7 @@ from .diff import collect_changes
 from .evaluation import coverage_problems, format_report, gate, load_cases, run_eval
 from .export import write_exports
 from .github import publish_comment
+from .jev import build_jev_provider
 from .llm import PROMPTS_DIR, api_key_env, build_provider
 from .model import GovernanceError, RunError
 from .policy import load_policies, policies_digest
@@ -37,9 +38,14 @@ def cmd_validate(_args):
     policies, _, _ = _load_all(strict_waivers=True)
     bundle = load_bundle()
     api_key_env(bundle.llm.provider)  # provedor desconhecido invalida o bundle
-    reviewers = {p.llm["reviewer"] for p in policies if p.llm}
+    if bundle.jev:
+        api_key_env(bundle.jev.provider)
+    reviewers = {p.llm["reviewer"] for p in policies if p.llm_engine == "generative"}
     problems = [f"prompt ausente para o revisor '{r}'"
                 for r in reviewers if not (PROMPTS_DIR / f"{r}.md").is_file()]
+    if not bundle.jev:
+        problems += [f"{p.id}: llm.engine=jev exige a seção jev no bundle.yaml"
+                     for p in policies if p.llm_engine == "jev"]
     problems += coverage_problems(policies, load_cases())
     if problems:
         raise GovernanceError("Bundle inválido:\n  " + "\n  ".join(sorted(set(problems))))
@@ -67,6 +73,17 @@ def _provider(args, bundle):
         logger.warning("%s ausente: camada LLM indisponível", key_env)
         return None
     return build_provider(bundle.llm, api_key)
+
+
+def _jev_provider(args, bundle):
+    if args.no_llm or not bundle.jev:
+        return None
+    key_env = api_key_env(bundle.jev.provider)
+    api_key = os.environ.get(key_env, "").strip()
+    if not api_key:
+        logger.warning("%s ausente: julgamento pelo Jev indisponível", key_env)
+        return None
+    return build_jev_provider(bundle.jev, api_key)
 
 
 def _secret_scan_errors():
@@ -145,7 +162,7 @@ def _review(args, pr):
     }
     result = evaluate(
         files, policies=policies, waivers=waivers, provider=_provider(args, bundle),
-        bundle=bundle, subject=subject,
+        jev_provider=_jev_provider(args, bundle), bundle=bundle, subject=subject,
         governance_ref=os.environ.get("GOVERNANCE_REF") or None,
         policies_digest=policies_digest(POLICIES_DIR),
         llm_required=not args.no_llm, extra_warnings=waiver_warnings,
@@ -186,20 +203,29 @@ def cmd_export(args):
     return 0
 
 
+def _required_key(config):
+    key_env = api_key_env(config.provider)
+    api_key = os.environ.get(key_env, "").strip()
+    if not api_key:
+        raise GovernanceError(f"--llm exige {key_env}")
+    return api_key
+
+
 def cmd_eval(args):
     policies = load_policies(POLICIES_DIR, ADRS_DIR)
     bundle = load_bundle()
     if args.model:
         bundle = replace(bundle, llm=replace(bundle.llm, model=args.model))
-    provider = None
+    provider = jev_provider = None
     if args.llm:
-        key_env = api_key_env(bundle.llm.provider)
-        api_key = os.environ.get(key_env, "").strip()
-        if not api_key:
-            raise GovernanceError(f"--llm exige {key_env}")
-        provider = build_provider(bundle.llm, api_key)
-    report = run_eval(policies, load_cases(), provider, bundle.llm, repeat=args.repeat)
-    report["model"] = bundle.llm.model if args.llm else None
+        if any(p.llm_engine == "generative" for p in policies):
+            provider = build_provider(bundle.llm, _required_key(bundle.llm))
+        if bundle.jev and any(p.llm_engine == "jev" for p in policies):
+            jev_provider = build_jev_provider(bundle.jev, _required_key(bundle.jev))
+    report = run_eval(policies, load_cases(), provider, bundle.llm, repeat=args.repeat,
+                      jev_provider=jev_provider, jev_config=bundle.jev)
+    report["model"] = bundle.llm.model if provider else None
+    report["jev_model"] = bundle.jev.model if jev_provider else None
     print(format_report(report))
     if args.out:
         Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2),

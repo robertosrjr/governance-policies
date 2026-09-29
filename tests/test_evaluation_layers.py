@@ -43,10 +43,21 @@ class FakeProvider:
         return {"summary": "ok", "findings": self.findings}
 
 
-def run(policies, bundle, files, provider=None, waivers=(), llm_required=True, commit="abc1234"):
+class FakeJev:
+    """Jev falso: responde a mesma probabilidade de "sim" para toda pergunta."""
+
+    def __init__(self, probability=0.0):
+        self.probability = probability
+
+    def nouls(self, state, questions):
+        return {qid: self.probability for qid in questions}
+
+
+def run(policies, bundle, files, provider=None, waivers=(), llm_required=True, commit="abc1234",
+        jev_provider=None):
     result = evaluate(
         as_new_files(files), policies=policies, waivers=list(waivers), provider=provider,
-        bundle=bundle,
+        jev_provider=jev_provider or FakeJev(), bundle=bundle,
         subject={"repository": "org/app", "commit": commit, "base": "main", "pull_request": 1},
         governance_ref="v1.0.0", policies_digest="0" * 64, llm_required=llm_required)
     Draft202012Validator(RESULT_SCHEMA).validate(result)
@@ -61,27 +72,28 @@ def test_deterministic_violation_blocks_even_if_llm_returns_nothing(policies, bu
 
 
 def test_llm_finding_is_added_but_does_not_block_without_eval_evidence(policies, bundle):
-    provider = FakeProvider([{"policy_id": "LGPD-LOG-001", "file": USECASE, "line": 4,
-                              "message": "toString() de Cliente com CPF no log"}])
+    provider = FakeProvider([{"policy_id": "QUAL-CODE-001", "file": USECASE, "line": 4,
+                              "message": "catch genérico que engole a exceção"}])
     result = run(policies, bundle, {USECASE: TOSTRING_LOG}, provider)
     assert result["status"] == "APPROVED"
     [finding] = [v for v in result["violations"] if v["source"] == "llm"]
-    assert finding["severity"] == "CRITICAL"  # severidade da política, não do modelo
+    assert finding["severity"] == "MAJOR"  # severidade da política, não do modelo
     assert finding["blocking"] is False
-    assert result["adr_compliance"]["ADR-LGPD-001"] == "WARN"
+    assert result["adr_compliance"]["ADR-QUAL-001"] == "WARN"
 
 
 @pytest.mark.parametrize("bad", [
-    {"policy_id": "LGPD-LOG-001", "file": USECASE, "line": 99, "message": "linha inexistente"},
+    {"policy_id": "QUAL-CODE-001", "file": USECASE, "line": 99, "message": "linha inexistente"},
     {"policy_id": "ARCH-HEX-001", "file": USECASE, "line": 4, "message": "política sem LLM"},
-    {"policy_id": "LGPD-LOG-001", "file": "outro/Arquivo.java", "line": 1, "message": "fora"},
+    {"policy_id": "QUAL-CODE-001", "file": "outro/Arquivo.java", "line": 1, "message": "fora"},
 ])
 def test_llm_findings_outside_contract_are_discarded(policies, bundle, bad):
     provider = FakeProvider([bad])
     result = run(policies, bundle, {USECASE: TOSTRING_LOG}, provider)
     assert not [v for v in result["violations"] if v["source"] == "llm"]
-    # o mesmo achado inválido volta de cada revisor (lgpd, quality, security)
-    assert result["stats"]["llm_findings_discarded"] == len(provider.calls) == 3
+    # o mesmo achado inválido volta de cada revisor generativo (quality, security);
+    # a LGPD-LOG-001 é do Jev (ADR-GOV-002)
+    assert result["stats"]["llm_findings_discarded"] == len(provider.calls) == 2
 
 
 class ApiError(Exception):
@@ -228,7 +240,7 @@ def test_waiver_bound_to_other_commit_does_not_apply(policies, bundle):
 
 
 def test_report_strips_links_and_images_from_model_output(policies, bundle):
-    provider = FakeProvider([{"policy_id": "LGPD-LOG-001", "file": USECASE, "line": 4,
+    provider = FakeProvider([{"policy_id": "QUAL-CODE-001", "file": USECASE, "line": 4,
                               "message": "veja ![x](https://evil/leak?d=1) e [aqui](https://e)"}])
     markdown = build_markdown(run(policies, bundle, {USECASE: TOSTRING_LOG}, provider))
     assert "https://" not in markdown and "evil" not in markdown

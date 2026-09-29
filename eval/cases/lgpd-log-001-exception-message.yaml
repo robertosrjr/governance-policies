@@ -1,0 +1,16 @@
+id: lgpd-log-001-exception-message
+description: CPF na mensagem de exceção, que é logada e pode voltar ao cliente.
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/domain/model/Documento.java: |
+    package com.empresa.pedidos.domain.model;
+
+    public record Documento(String numero) {
+        public Documento {
+            if (numero == null || numero.length() != 11) {
+                throw new IllegalArgumentException("CPF inválido: " + numero);
+            }
+        }
+    }
+expect:
+  LGPD-LOG-001: true

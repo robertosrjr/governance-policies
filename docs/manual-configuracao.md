@@ -125,14 +125,15 @@ on:
 
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.1
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.3.0
     with:
-      governance_ref: v1.2.1      # tem que ser igual à tag do 'uses:'
+      governance_ref: v1.3.0      # tem que ser igual à tag do 'uses:'
     secrets:                      # só a chave do projeto (nunca 'secrets: inherit')
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
+      TYPESAFE_API_KEY: ${{ secrets.VIRTUALTHREADS_JEV_API_KEY }}
 ```
 
-As duas tags (`@v1.2.1` e `governance_ref: v1.2.1`) **têm que ser iguais**.
+As duas tags (`@v1.3.0` e `governance_ref: v1.3.0`) **têm que ser iguais**.
 
 À esquerda do `:` fica o nome que o workflow central espera (`OPENROUTER_API_KEY`); à
 direita, o nome do segredo na aplicação, que pode ser qualquer um. Tags anteriores à
@@ -185,8 +186,14 @@ Na aplicação: *Settings → Secrets and variables → Actions → New reposito
 - Name: `VIRTUALTHREADS_OR_API_KEY` (o mesmo nome usado no `secrets:` do `governance.yml`)
 - Secret: a chave da OpenRouter criada **só para esta aplicação**
 
-Uma chave por aplicação: cada uma tem o próprio limite e o próprio gasto no painel da
-OpenRouter, e pode ser revogada sem afetar as outras
+E, desde a v1.3.0, a chave da TypeSafe (Jev), usada pelas políticas com `llm.engine: jev`
+([ADR-GOV-002](../adrs/ADR-GOV-002-julgamento-tipado-jev.md)):
+
+- Name: `VIRTUALTHREADS_JEV_API_KEY`
+- Secret: a chave criada em https://console.typesafe.ai **só para esta aplicação**
+
+Uma chave por aplicação: cada uma tem o próprio limite e o próprio gasto no painel do
+provedor, e pode ser revogada sem afetar as outras
 ([ADR-GOV-001](../adrs/ADR-GOV-001-provedor-llm-openrouter.md)).
 
 Se existir uma **variável** `GEMINI_MODEL` do pipeline antigo, ela pode ser apagada: o

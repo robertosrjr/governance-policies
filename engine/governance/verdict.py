@@ -11,7 +11,7 @@ Qualquer erro de execução bloqueia (fail-closed).
 from . import __version__
 
 # 1.1: `errors` passou de texto para {kind, message, action}.
-RESULT_SCHEMA_VERSION = "1.1"
+RESULT_SCHEMA_VERSION = "1.2"
 
 
 def mark_blocking(findings, policies_by_id):

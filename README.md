@@ -90,7 +90,7 @@ Exemplo com a PoC `robertosrjr/virtualthreads`, que chama este repositório na t
 ```mermaid
 flowchart LR
     A[PR na PoC] --> B[governance.yml<br/>da PoC]
-    B -- "uses: ...@v1.2.1<br/>secrets: OPENROUTER_API_KEY" --> C[governance-required.yml<br/>deste repositório]
+    B -- "uses: ...@v1.3.0<br/>secrets: OPENROUTER_API_KEY, TYPESAFE_API_KEY" --> C[governance-required.yml<br/>deste repositório]
     C --> D[gitleaks + motor]
     D --> E{Veredito}
     E -- APPROVED --> F[check verde:<br/>ruleset libera o merge]
@@ -108,11 +108,12 @@ on:
     types: [opened, synchronize, reopened]   # abrir, novo push, reabrir
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.1
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.3.0
     with:
-      governance_ref: v1.2.1                  # a mesma tag do 'uses:'
+      governance_ref: v1.3.0                  # a mesma tag do 'uses:'
     secrets:                                  # só a chave do projeto, nunca 'inherit'
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
+      TYPESAFE_API_KEY: ${{ secrets.VIRTUALTHREADS_JEV_API_KEY }}
 ```
 
 **3. O workflow central roda** ([governance-required.yml](.github/workflows/governance-required.yml)),
@@ -121,7 +122,7 @@ em um runner do GitHub:
 | Passo do workflow | O que faz |
 |---|---|
 | Checkout do repositório-alvo | Baixa o código do PR em `target/`. É tratado como **dado**, nunca como instrução. |
-| Checkout do motor | Baixa **este** repositório na tag `v1.2.1` em `governance/`: motor, políticas, prompts e modelo. |
+| Checkout do motor | Baixa **este** repositório na tag `v1.3.0` em `governance/`: motor, políticas, prompts e modelo. |
 | Instalar dependências | `pip install --require-hashes`: só instala pacotes com hash conferido. |
 | gitleaks | Procura segredos em **cada commit** do PR, inclusive nos já apagados. |
 | Avaliar políticas | `python -m governance review`: aplica as regras determinísticas (T0) e o LLM (T1) no diff e comenta o relatório no PR. |
@@ -148,7 +149,7 @@ O passo que chamava o Gemini veio para o workflow central:
 | `GEMINI_API_KEY`, `GITHUB_TOKEN`, `PR_NUMBER`, `BASE_REF` | As mesmas variáveis, no passo "Avaliar políticas" do workflow central. Desde a v1.2.0 a chave é `OPENROUTER_API_KEY` ([ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md)). |
 | `GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}` | Removido de propósito. O modelo fica em [engine/bundle.yaml](engine/bundle.yaml), para o repositório revisado não poder escolher um modelo mais fraco. |
 
-Na PoC ficam só o **segredo** `VIRTUALTHREADS_OR_API_KEY` (em *Settings → Secrets and
+Na PoC ficam só os **segredos** `VIRTUALTHREADS_OR_API_KEY` e `VIRTUALTHREADS_JEV_API_KEY` (em *Settings → Secrets and
 variables → Actions*) e o `governance.yml`. A variável `GEMINI_MODEL` pode ser apagada, e o
 `GEMINI_API_KEY` também, depois que a v1.2.1 estiver estável.
 

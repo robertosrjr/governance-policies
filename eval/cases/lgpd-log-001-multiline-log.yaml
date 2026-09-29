@@ -1,0 +1,22 @@
+id: lgpd-log-001-multiline-log
+description: Chamada de log quebrada em várias linhas; o CPF está na linha seguinte.
+requires_llm: true
+files:
+  app/src/main/java/com/empresa/pedidos/application/usecase/AtualizarCadastroUseCase.java: |
+    package com.empresa.pedidos.application.usecase;
+
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+
+    public class AtualizarCadastroUseCase {
+        private static final Logger logger = LoggerFactory.getLogger(AtualizarCadastroUseCase.class);
+
+        public void executar(String clienteId, String cpfNovo) {
+            logger.info(
+                "Cadastro {} atualizado com documento {}",
+                clienteId,
+                cpfNovo);
+        }
+    }
+expect:
+  LGPD-LOG-001: true

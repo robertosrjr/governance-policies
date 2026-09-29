@@ -19,10 +19,11 @@ permissions:
 
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.1
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.3.0
     with:
-      governance_ref: v1.2.1
+      governance_ref: v1.3.0
     # Repasse só a chave do projeto (nunca `secrets: inherit`, que entrega todos os
     # segredos do repositório ao workflow central). O nome à direita é o do seu segredo.
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}

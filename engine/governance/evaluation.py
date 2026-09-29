@@ -65,8 +65,9 @@ def _score(counts):
     return recall, precision
 
 
-def run_eval(policies, cases, provider=None, llm_config=None, repeat=1):
-    use_llm = provider is not None
+def run_eval(policies, cases, provider=None, llm_config=None, repeat=1, jev_provider=None,
+             jev_config=None):
+    use_llm = provider is not None or jev_provider is not None
     selected = [c for c in cases if use_llm or not c.requires_llm]
     counts = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0})
     deterministic_failures, errors = [], []
@@ -76,7 +77,7 @@ def run_eval(policies, cases, provider=None, llm_config=None, repeat=1):
         matches = 0
         for _ in range(repeat if use_llm else 1):
             _, findings, run_errors, _, _ = run_layers(files, policies, provider, llm_config,
-                                                       llm_required=use_llm)
+                                                       use_llm, jev_provider, jev_config)
             errors += [f"{case.id}: {e}" for e in run_errors]
             fired = {f.policy_id for f in findings}
             fired_det = {f.policy_id for f in findings if f.source == "deterministic"}
