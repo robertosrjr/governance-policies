@@ -125,14 +125,14 @@ on:
 
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.1
     with:
-      governance_ref: v1.2.0      # tem que ser igual à tag do 'uses:'
+      governance_ref: v1.2.1      # tem que ser igual à tag do 'uses:'
     secrets:                      # só a chave do projeto (nunca 'secrets: inherit')
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
 ```
 
-As duas tags (`@v1.2.0` e `governance_ref: v1.2.0`) **têm que ser iguais**.
+As duas tags (`@v1.2.1` e `governance_ref: v1.2.1`) **têm que ser iguais**.
 
 À esquerda do `:` fica o nome que o workflow central espera (`OPENROUTER_API_KEY`); à
 direita, o nome do segredo na aplicação, que pode ser qualquer um. Tags anteriores à
@@ -505,8 +505,8 @@ python -m governance eval
 git add <arquivos>
 git commit -m "..."
 git push
-git tag -a v1.2.0 -m "..."
-git push origin v1.2.0
+git tag -a v1.2.1 -m "..."
+git push origin v1.2.1
 ```
 
 - Nunca mova nem apague uma tag publicada.
@@ -520,15 +520,15 @@ git push origin v1.2.0
 cd C:\Developer\Workspace\java\virtualthreads
 git checkout main
 git pull
-git checkout -b chore/governanca-v1.2.0
+git checkout -b chore/governanca-v1.2.1
 ```
 
 Troque a tag nos **dois** lugares do `.github/workflows/governance.yml` e envie:
 
 ```powershell
 git add .github/workflows/governance.yml
-git commit -m "Governança v1.2.0"
-git push -u origin chore/governanca-v1.2.0
+git commit -m "Governança v1.2.1"
+git push -u origin chore/governanca-v1.2.1
 ```
 
 O rodapé do comentário no PR mostra a versão do motor em uso (ex.: `motor 1.1.0`).
