@@ -57,8 +57,9 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 
 1. Publique uma tag deste repositório (ex.: `v1.0.0`) e aplique
    [templates/org-ruleset.json](templates/org-ruleset.json) com o `repository_id` dele.
-2. Secrets da organização: `GEMINI_API_KEY` e, se este repositório for privado,
-   `GOVERNANCE_READ_TOKEN` (somente leitura neste repositório).
+2. Secrets da organização: `OPENROUTER_API_KEY` (de preferência restrito aos repositórios
+   selecionados) e, se este repositório for privado, `GOVERNANCE_READ_TOKEN` (somente
+   leitura neste repositório). Ver [ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md).
 3. Ajuste `GOVERNANCE_REPOSITORY` no workflow se o nome do repositório mudar.
 4. Confirme no primeiro PR que `github.workflow_sha` aponta para a revisão deste
    repositório: se não apontar, o checkout do motor falha e o PR é bloqueado
@@ -71,7 +72,9 @@ Sem organização não há required workflow. O repo-alvo chama o workflow centr
 1. Copie [templates/target-repo/governance.yml](templates/target-repo/governance.yml) para
    `.github/workflows/governance.yml` do repo-alvo, com a mesma tag no `uses:` e em
    `governance_ref`.
-2. Secret `GEMINI_API_KEY` no repo-alvo. Se este repositório for privado, libere-o em
+2. Uma chave da OpenRouter **só deste projeto** (em https://openrouter.ai/keys, com limite
+   mensal) como secret do repo-alvo, com o nome que quiser, repassada no `secrets:` do
+   `governance.yml` como `OPENROUTER_API_KEY`. Se este repositório for privado, libere-o em
    *Settings → Actions → General → Access* para os repositórios da sua conta.
 3. Ruleset do repo-alvo no branch principal: exigir PR e o status check
    `governance / governance`. Rulesets em repositório privado exigem plano Pro.
@@ -87,7 +90,7 @@ Exemplo com a PoC `robertosrjr/virtualthreads`, que chama este repositório na t
 ```mermaid
 flowchart LR
     A[PR na PoC] --> B[governance.yml<br/>da PoC]
-    B -- "uses: ...@v1.0.0<br/>secrets: inherit" --> C[governance-required.yml<br/>deste repositório]
+    B -- "uses: ...@v1.2.0<br/>secrets: OPENROUTER_API_KEY" --> C[governance-required.yml<br/>deste repositório]
     C --> D[gitleaks + motor]
     D --> E{Veredito}
     E -- APPROVED --> F[check verde:<br/>ruleset libera o merge]
@@ -105,10 +108,11 @@ on:
     types: [opened, synchronize, reopened]   # abrir, novo push, reabrir
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.0.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.0
     with:
-      governance_ref: v1.0.0                  # a mesma tag do 'uses:'
-    secrets: inherit                          # repassa o GEMINI_API_KEY da PoC
+      governance_ref: v1.2.0                  # a mesma tag do 'uses:'
+    secrets:                                  # só a chave do projeto, nunca 'inherit'
+      OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
 ```
 
 **3. O workflow central roda** ([governance-required.yml](.github/workflows/governance-required.yml)),
@@ -117,7 +121,7 @@ em um runner do GitHub:
 | Passo do workflow | O que faz |
 |---|---|
 | Checkout do repositório-alvo | Baixa o código do PR em `target/`. É tratado como **dado**, nunca como instrução. |
-| Checkout do motor | Baixa **este** repositório na tag `v1.0.0` em `governance/`: motor, políticas, prompts e modelo. |
+| Checkout do motor | Baixa **este** repositório na tag `v1.2.0` em `governance/`: motor, políticas, prompts e modelo. |
 | Instalar dependências | `pip install --require-hashes`: só instala pacotes com hash conferido. |
 | gitleaks | Procura segredos em **cada commit** do PR, inclusive nos já apagados. |
 | Avaliar políticas | `python -m governance review`: aplica as regras determinísticas (T0) e o LLM (T1) no diff e comenta o relatório no PR. |
@@ -141,11 +145,12 @@ O passo que chamava o Gemini veio para o workflow central:
 | Antes, na PoC | Agora |
 |---|---|
 | `run: python .github/scripts/orchestrator.py` | `python -m governance review`, com o motor **deste** repositório. O script antigo vinha do próprio PR, então o PR podia alterar o revisor. |
-| `GEMINI_API_KEY`, `GITHUB_TOKEN`, `PR_NUMBER`, `BASE_REF` | As mesmas variáveis, no passo "Avaliar políticas" do workflow central. |
+| `GEMINI_API_KEY`, `GITHUB_TOKEN`, `PR_NUMBER`, `BASE_REF` | As mesmas variáveis, no passo "Avaliar políticas" do workflow central. Desde a v1.2.0 a chave é `OPENROUTER_API_KEY` ([ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md)). |
 | `GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}` | Removido de propósito. O modelo fica em [engine/bundle.yaml](engine/bundle.yaml), para o repositório revisado não poder escolher um modelo mais fraco. |
 
-Na PoC ficam só o **segredo** `GEMINI_API_KEY` (em *Settings → Secrets and variables →
-Actions*) e o `governance.yml`. A variável `GEMINI_MODEL` pode ser apagada.
+Na PoC ficam só o **segredo** `VIRTUALTHREADS_OR_API_KEY` (em *Settings → Secrets and
+variables → Actions*) e o `governance.yml`. A variável `GEMINI_MODEL` pode ser apagada, e o
+`GEMINI_API_KEY` também, depois que a v1.2.0 estiver estável.
 
 ### Testar o bloqueio
 

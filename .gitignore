@@ -6,3 +6,8 @@ governance-out/
 out/
 eval-*.json
 ~$*.docx
+
+# Segredos locais: nunca versionar (SEC-SECRET-001)
+.env
+.env.*
+.secrets/

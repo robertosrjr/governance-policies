@@ -8,7 +8,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from governance.diff import as_new_files
-from governance.llm import build_user_content, render_file
+from governance.llm import api_key_env, build_user_content, render_file
 from governance.report import build_markdown, build_sarif
 from governance.review import evaluate
 from governance.waivers import Waiver
@@ -139,10 +139,10 @@ def test_provider_down_does_not_hide_a_real_violation(policies, bundle):
 
 
 @pytest.mark.parametrize("error, text", [
-    (ApiError(403), "GEMINI_API_KEY"),
+    (ApiError(403), "{key_env}"),
     # resposta real do Gemini para chave inválida
     (ApiError(400, "INVALID_ARGUMENT. API key not valid. Please pass a valid API key."),
-     "GEMINI_API_KEY"),
+     "{key_env}"),
     (ApiError(404), "time de plataforma"),
     (ValueError("json"), "Re-run"),
 ])
@@ -150,7 +150,7 @@ def test_other_llm_failures_say_what_to_do(policies, bundle, error, text):
     result = run(policies, bundle, {USECASE: TOSTRING_LOG}, FakeProvider(error=error))
     assert result["status"] == "BLOCKED"
     assert result["errors"][0]["kind"] == "llm_failure"
-    assert text in result["errors"][0]["action"]
+    assert text.format(key_env=api_key_env(bundle.llm.provider)) in result["errors"][0]["action"]
     assert "Não é problema no seu código" not in build_markdown(result)
 
 
@@ -159,7 +159,7 @@ def test_missing_llm_in_ci_is_fail_closed_but_allowed_locally(policies, bundle):
     local = run(policies, bundle, {USECASE: TOSTRING_LOG}, provider=None, llm_required=False)
     assert ci["status"] == "BLOCKED"
     assert ci["errors"][0]["kind"] == "llm_not_configured"
-    assert "GEMINI_API_KEY" in ci["errors"][0]["action"]
+    assert api_key_env(bundle.llm.provider) in ci["errors"][0]["action"]
     assert local["status"] == "APPROVED" and "LLM desligado" in local["warnings"][0]
 
 

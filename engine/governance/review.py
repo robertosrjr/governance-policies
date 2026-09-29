@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from .deterministic import run_deterministic
-from .llm import LlmConfig, run_llm
+from .llm import LlmConfig, api_key_env, run_llm
 from .model import RunError
 from .policy import select_policies
 from .verdict import build_result
@@ -40,10 +40,11 @@ def run_layers(files, policies, provider, llm_config, llm_required):
     if semantic and provider is None:
         ids = ", ".join(p.id for p in semantic)
         if llm_required:
+            key_env = api_key_env(llm_config.provider)
             errors.append(RunError(
                 "llm_not_configured",
-                f"Revisor de IA não configurado (sem GEMINI_API_KEY): {ids} não foram avaliadas.",
-                "Crie o segredo GEMINI_API_KEY em Settings → Secrets and variables → Actions "
+                f"Revisor de IA não configurado (sem {key_env}): {ids} não foram avaliadas.",
+                f"Crie o segredo {key_env} em Settings → Secrets and variables → Actions "
                 "do repositório e rode de novo."))
         else:
             warnings.append(f"LLM desligado (--no-llm): {ids} não foram avaliadas.")

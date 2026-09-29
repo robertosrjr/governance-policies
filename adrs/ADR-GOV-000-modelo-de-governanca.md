@@ -114,6 +114,8 @@ separa autor de aprovador e não se amarra ao SHA.
 ## Pendências
 
 - Contrato do provedor de LLM (LGPD Art. 33) e decisão entre Gemini, Bedrock e Vertex.
+  Desde o bundle 1.1.0 o acesso é pela OpenRouter
+  ([ADR-GOV-001](ADR-GOV-001-provedor-llm-openrouter.md)), que entra na mesma pendência.
 - Configurar o ruleset da organização (templates/org-ruleset.json) e o gate de deploy.
 - Rodar `python -m governance eval --llm --repeat 5` e publicar as métricas antes de
   qualquer `llm.blocking: true`.

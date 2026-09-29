@@ -13,7 +13,7 @@ Todos a partir da raiz, com `PYTHONPATH=engine` (o pytest já configura isso no 
 | `python -m governance validate` | Schema das políticas e waivers, ADRs referenciados, prompts, cobertura do eval |
 | `python -m governance export` | Regenera `exports/` e `.claude/rules/governance-policies.md` (`--check` no CI) |
 | `python -m governance eval` | Eval determinístico: todo caso de `eval/cases` sem `requires_llm` deve bater |
-| `python -m governance eval --llm --repeat 5` | Eval do revisor LLM (exige `GEMINI_API_KEY`) |
+| `python -m governance eval --llm --repeat 5` | Eval do revisor LLM (exige a chave do provedor do bundle: `GEMINI_API_KEY` ou `OPENROUTER_API_KEY`) |
 | `python -m governance review --repo <checkout> --base origin/main --no-llm` | Avaliar um repositório localmente |
 
 Dependências: `pip install --no-deps --require-hashes -r engine/requirements-dev.lock`.

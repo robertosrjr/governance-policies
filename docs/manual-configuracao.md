@@ -24,7 +24,7 @@ fazer e em que ordem**.
 |---|---|
 | Conta no GitHub com os dois repositórios: o central (`governance-policies`) e o da aplicação | O workflow da aplicação chama o do central |
 | Repositório da aplicação **público**, ou privado com plano **Pro** | Rulesets em repositório privado de conta pessoal gratuita não funcionam |
-| Uma chave da API do Gemini (`GEMINI_API_KEY`) | A camada de IA é obrigatória no pipeline; sem a chave, PRs com código Java ficam bloqueados |
+| Uma chave da OpenRouter só da aplicação (https://openrouter.ai/keys, com limite mensal) | A camada de IA é obrigatória no pipeline; sem a chave, PRs com código Java ficam bloqueados |
 | Python 3.12+ e git na máquina | Para rodar o motor localmente |
 
 Os nomes usados neste manual:
@@ -125,13 +125,18 @@ on:
 
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.1.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.2.0
     with:
-      governance_ref: v1.1.0      # tem que ser igual à tag do 'uses:'
-    secrets: inherit              # repassa o GEMINI_API_KEY da aplicação
+      governance_ref: v1.2.0      # tem que ser igual à tag do 'uses:'
+    secrets:                      # só a chave do projeto (nunca 'secrets: inherit')
+      OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
 ```
 
-As duas tags (`@v1.1.0` e `governance_ref: v1.1.0`) **têm que ser iguais**.
+As duas tags (`@v1.2.0` e `governance_ref: v1.2.0`) **têm que ser iguais**.
+
+À esquerda do `:` fica o nome que o workflow central espera (`OPENROUTER_API_KEY`); à
+direita, o nome do segredo na aplicação, que pode ser qualquer um. Tags anteriores à
+`v1.2.0` não declaram segredos: com elas, use `secrets: inherit` e `GEMINI_API_KEY`.
 
 ### 2.3 Adicionar o CODEOWNERS
 
@@ -177,8 +182,12 @@ Abra o PR no GitHub. **Não faça o merge ainda**: primeiro configure o segredo 
 
 Na aplicação: *Settings → Secrets and variables → Actions → New repository secret*:
 
-- Name: `GEMINI_API_KEY`
-- Secret: a chave da API
+- Name: `VIRTUALTHREADS_OR_API_KEY` (o mesmo nome usado no `secrets:` do `governance.yml`)
+- Secret: a chave da OpenRouter criada **só para esta aplicação**
+
+Uma chave por aplicação: cada uma tem o próprio limite e o próprio gasto no painel da
+OpenRouter, e pode ser revogada sem afetar as outras
+([ADR-GOV-001](../adrs/ADR-GOV-001-provedor-llm-openrouter.md)).
 
 Se existir uma **variável** `GEMINI_MODEL` do pipeline antigo, ela pode ser apagada: o
 modelo agora fica no `engine/bundle.yaml` do central.
@@ -341,23 +350,23 @@ INFO      MAJOR    GOV-SELF-001     .github/workflows/x.yml:None (deterministic)
 INFO    Veredito: APPROVED. Aprovado com 1 achado(s) não bloqueante(s).
 ```
 
-**Revisor de IA sem chave** (rode **sem** `--no-llm` e sem `GEMINI_API_KEY`, com uma classe
-Java alterada):
+**Revisor de IA sem chave** (rode **sem** `--no-llm` e sem `OPENROUTER_API_KEY`, com uma
+classe Java alterada):
 
 ```
-ERROR     Revisor de IA não configurado (sem GEMINI_API_KEY): LGPD-LOG-001, LLM-INJ-001, QUAL-CODE-001 não foram avaliadas. -> Crie o segredo GEMINI_API_KEY em Settings → Secrets and variables → Actions do repositório e rode de novo.
+ERROR     Revisor de IA não configurado (sem OPENROUTER_API_KEY): LGPD-LOG-001, LLM-INJ-001, QUAL-CODE-001 não foram avaliadas. -> Crie o segredo OPENROUTER_API_KEY em Settings → Secrets and variables → Actions do repositório e rode de novo.
 INFO    Veredito: BLOCKED. Bloqueado: 1 erro(s) de execução impedem um veredito confiável.
 ```
 
-**Revisor de IA com chave inválida** (`$env:GEMINI_API_KEY = "chave-invalida"` e sem
+**Revisor de IA com chave inválida** (`$env:OPENROUTER_API_KEY = "chave-invalida"` e sem
 `--no-llm`):
 
 ```
-WARNING Tentativa 1/3 falhou: HTTP 400
-ERROR     Revisor de IA (lgpd): a chave do provedor de LLM foi recusada (HTTP 400). -> Verifique o segredo GEMINI_API_KEY em Settings → Secrets and variables → Actions do repositório.
+WARNING Tentativa 1/3 falhou: HTTP 401
+ERROR     Revisor de IA (lgpd): a chave do provedor de LLM foi recusada (HTTP 401). -> Verifique o segredo OPENROUTER_API_KEY em Settings → Secrets and variables → Actions do repositório.
 ```
 
-**Com a IA ligada** (`GEMINI_API_KEY` válida e sem `--no-llm`): os achados do LLM aparecem
+**Com a IA ligada** (`OPENROUTER_API_KEY` válida e sem `--no-llm`): os achados do LLM aparecem
 com origem `llm` e nunca bloqueiam. Ex.: `logger.info("Cliente criado: {}", cliente)`
 quando `Cliente` tem CPF, que a regex não pega.
 
@@ -424,11 +433,12 @@ comentário mostra uma destas seções:
 
 | Título no comentário | Mensagem | Causa | O que fazer |
 |---|---|---|---|
-| ⚠️ Revisor de IA indisponível | `…respondeu HTTP 503 (sobrecarga ou falha do provedor)` | O Gemini está sobrecarregado. Não é problema no código. | Esperar alguns minutos e *Re-run all jobs*. |
+| ⚠️ Revisor de IA indisponível | `…respondeu HTTP 503 (sobrecarga ou falha do provedor)` | O provedor do modelo está sobrecarregado. Não é problema no código. | Esperar alguns minutos e *Re-run all jobs*. |
 | ⚠️ Revisor de IA indisponível | `…sem cota no provedor de LLM (HTTP 429)` | A cota do plano da chave acabou. | Esperar a cota renovar e *Re-run all jobs*. |
+| ⚠️ Revisor de IA indisponível | `…sem créditos no provedor de LLM (HTTP 402)` | A chave da aplicação atingiu o limite de gasto na OpenRouter. | Aumentar o limite da chave ou recarregar créditos e *Re-run all jobs*. |
 | ⚠️ Revisor de IA indisponível | `…sem resposta do provedor de LLM (TimeoutError)` | Timeout ou rede. | *Re-run all jobs*. |
-| ❗ Erros de execução | `…a chave do provedor de LLM foi recusada (HTTP 400/403)` | `GEMINI_API_KEY` inválida ou revogada. | Corrigir o segredo no repositório. |
-| ❗ Erros de execução | `Revisor de IA não configurado (sem GEMINI_API_KEY)` | O segredo não existe no repositório. | Criar o segredo (Parte 2.7). |
+| ❗ Erros de execução | `…a chave do provedor de LLM foi recusada (HTTP 401/403)` | Chave da OpenRouter inválida ou revogada. | Corrigir o segredo no repositório. |
+| ❗ Erros de execução | `Revisor de IA não configurado (sem OPENROUTER_API_KEY)` | O segredo não existe ou não foi repassado no `secrets:` do `governance.yml`. | Criar o segredo (Parte 2.7) e conferir o repasse (Parte 2.2). |
 | ❗ Erros de execução | `…recusou a requisição (HTTP 404); modelo ou parâmetro inválido no bundle` | Configuração central errada. | Avisar o time de plataforma. |
 | ❗ Erros de execução | `…passa do limite do revisor de IA` | Arquivo grande demais para o LLM. Nada é truncado. | Se for gerado, pedir para tirar do escopo; se for código, dividir. |
 | ❗ Erros de execução | `O gitleaks encontrou possível segredo em um dos commits do PR` | Credencial em algum commit, mesmo que apagada depois. | Revogar a credencial e ver o alerta em *Code scanning*. |
@@ -538,7 +548,7 @@ Tudo isto aconteceu ao configurar a PoC.
 | O PR não rodou de novo depois de publicar a tag | O workflow só dispara ao abrir, dar push ou reabrir | Fechar e reabrir o PR, ou *Re-run all jobs*. |
 | `governance.yml` não aparece na pasta local | A pasta está em outro branch (ex.: `main` antes do merge) | `git branch --show-current`; o arquivo está no branch do PR. |
 | `No module named governance` | `PYTHONPATH` não definido na janela do PowerShell | `$env:PYTHONPATH = "engine"`. |
-| `--llm exige GEMINI_API_KEY` com a chave nas variáveis do Windows | A janela foi aberta antes de a variável ser criada | Feche e abra o PowerShell (ou o VS Code). |
+| `--llm exige OPENROUTER_API_KEY` com a chave nas variáveis do Windows | A janela foi aberta antes de a variável ser criada | Feche e abra o PowerShell (ou o VS Code). |
 | Muitos `503 Service Unavailable` no eval com LLM | Sobrecarga do modelo no Google (não é cota; cota é 429) | Tentar em outro horário, com `--repeat 3`. No PR, o motor bloqueia e mostra "⚠️ Revisor de IA indisponível". |
 | Comentário "✅ Aprovado" com o check vermelho | Na v1.0.0, o gitleaks não entrava no comentário | Corrigido na v1.1.0: o gitleaks faz parte do veredito. |
 
@@ -555,7 +565,7 @@ Tudo isto aconteceu ao configurar a PoC.
 - [ ] Pipeline de IA antigo removido
 - [ ] `.github/workflows/governance.yml` com a mesma tag no `uses:` e em `governance_ref`
 - [ ] `.github/CODEOWNERS` com o seu usuário
-- [ ] Segredo `GEMINI_API_KEY`
+- [ ] Segredo com a chave da OpenRouter da aplicação, repassado como `OPENROUTER_API_KEY`
 - [ ] Ruleset na `main`: PR obrigatório, 0 aprovações, check `governance / governance`,
       sem bypass, sem check antigo
 - [ ] PR de configuração verde e mergeado

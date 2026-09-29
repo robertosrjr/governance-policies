@@ -37,6 +37,9 @@ class LlmConfig:
     temperature: float = 0.0
     max_input_chars: int = 150_000
     max_attempts: int = 3
+    # Teto da resposta. Sem ele a OpenRouter reserva a saída máxima do modelo e recusa
+    # (HTTP 402) chaves com limite de gasto. A resposta é um JSON curto de achados.
+    max_output_tokens: int = 8192
 
 
 def response_schema(policy_ids):
@@ -115,6 +118,34 @@ def batch_files(files, max_chars):
 # ---------------------------------------------------------------- provedores
 
 
+API_KEY_ENV = {"gemini": "GEMINI_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+
+
+def api_key_env(provider):
+    """Nome da variável (segredo do Actions) com a chave do provedor do bundle."""
+    try:
+        return API_KEY_ENV[provider]
+    except KeyError:
+        raise GovernanceError(f"Provedor de LLM não suportado: {provider}") from None
+
+
+def _with_retries(config, call):
+    for attempt in range(1, config.max_attempts + 1):
+        try:
+            return call()
+        except Exception as exc:  # noqa: BLE001 - provedores lançam tipos variados
+            status = _http_status(exc)
+            retryable = status is None or status in RETRYABLE_STATUS
+            last = attempt == config.max_attempts or not retryable
+            logger.warning("Tentativa %d/%d falhou: %s%s", attempt, config.max_attempts,
+                           f"HTTP {status}" if status else type(exc).__name__,
+                           "" if last else f"; nova tentativa em {2 ** attempt}s")
+            if last:
+                raise
+            time.sleep(2 ** attempt)
+    raise AssertionError("inalcançável")
+
+
 class GeminiProvider:
     def __init__(self, config, api_key):
         from google import genai  # import tardio: modo offline não precisa do SDK
@@ -134,27 +165,121 @@ class GeminiProvider:
             response_schema=schema,
             temperature=self._config.temperature,
         )
-        for attempt in range(1, self._config.max_attempts + 1):
-            try:
-                response = self._client.models.generate_content(
-                    model=self._config.model, contents=user_content, config=config)
-                return json.loads(response.text)
-            except Exception as exc:  # noqa: BLE001 - SDK lança tipos variados
-                status = _http_status(exc)
-                retryable = status is None or status in RETRYABLE_STATUS
-                last = attempt == self._config.max_attempts or not retryable
-                logger.warning("Tentativa %d/%d falhou: %s%s", attempt, self._config.max_attempts,
-                               f"HTTP {status}" if status else type(exc).__name__,
-                               "" if last else f"; nova tentativa em {2 ** attempt}s")
-                if last:
-                    raise
-                time.sleep(2 ** attempt)
-        raise AssertionError("inalcançável")
+
+        def call():
+            response = self._client.models.generate_content(
+                model=self._config.model, contents=user_content, config=config)
+            return json.loads(response.text)
+
+        return _with_retries(self._config, call)
+
+
+class ProviderError(Exception):
+    """Erro devolvido pelo provedor. `code` segue o contrato de `_http_status`."""
+
+    def __init__(self, code, message):
+        super().__init__(f"HTTP {code}: {message}")
+        self.code = code
+
+
+def to_json_schema(schema):
+    """Converte o schema no dialeto do Gemini (tipos em maiúsculas) para JSON Schema.
+
+    `strict` exige `additionalProperties: false` e todas as propriedades em `required`.
+    """
+    if isinstance(schema, list):
+        return [to_json_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    converted = {key: to_json_schema(value) for key, value in schema.items()}
+    if isinstance(converted.get("type"), str):
+        converted["type"] = converted["type"].lower()
+    if converted.get("type") == "object":
+        converted["additionalProperties"] = False
+    return converted
+
+
+class OpenRouterProvider:
+    """Chat Completions da OpenRouter (https://openrouter.ai/docs/quickstart).
+
+    HTTP direto pela biblioteca padrão: o contrato é o da API, e o lock não ganha dependência.
+    """
+
+    URL = "https://openrouter.ai/api/v1/chat/completions"
+
+    def __init__(self, config, api_key):
+        self._config = config
+        self._headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "X-OpenRouter-Title": "governance-policies",
+        }
+
+    def _payload(self, system_prompt, user_content, schema):
+        return {
+            "model": self._config.model,
+            "messages": [{"role": "system", "content": system_prompt},
+                         {"role": "user", "content": user_content}],
+            "temperature": self._config.temperature,
+            "max_tokens": self._config.max_output_tokens,
+            "response_format": {"type": "json_schema", "json_schema": {
+                "name": "governance_review", "strict": True,
+                "schema": to_json_schema(schema)}},
+            # Só endpoints que honram o schema; e o código revisado (mesmo redigido) não vai
+            # para provedores que guardam ou treinam com os dados.
+            "provider": {"require_parameters": True, "data_collection": "deny"},
+        }
+
+    def _post(self, payload):
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(
+            self.URL, data=json.dumps(payload).encode("utf-8"), headers=self._headers,
+            method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_MS / 1000) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise ProviderError(exc.code, _error_message(exc.read())) from None
+
+    def review(self, system_prompt, user_content, schema):
+        payload = self._payload(system_prompt, user_content, schema)
+
+        def call():
+            data = self._post(payload)
+            # Falha durante a geração chega como HTTP 200 com `error` no corpo.
+            error = data.get("error")
+            if error:
+                code = error.get("code")
+                raise ProviderError(code if isinstance(code, int) else 502,
+                                    error.get("message", ""))
+            choice = (data.get("choices") or [{}])[0]
+            if choice.get("finish_reason") == "error":
+                raise ProviderError(502, "geração interrompida pelo provedor")
+            if choice.get("finish_reason") == "length":  # nada é truncado: resposta cortada é erro
+                raise ValueError(f"resposta passou de max_output_tokens "
+                                 f"({self._config.max_output_tokens})")
+            content = (choice.get("message") or {}).get("content")
+            if not isinstance(content, str):
+                raise ValueError("resposta sem conteúdo")
+            return json.loads(content)
+
+        return _with_retries(self._config, call)
+
+
+def _error_message(body):
+    try:
+        return json.loads(body)["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        return body[:200].decode("utf-8", "replace")
 
 
 def build_provider(config, api_key):
     if config.provider == "gemini":
         return GeminiProvider(config, api_key)
+    if config.provider == "openrouter":
+        return OpenRouterProvider(config, api_key)
     raise GovernanceError(f"Provedor de LLM não suportado: {config.provider}")
 
 
@@ -186,10 +311,14 @@ def _key_rejected(status, exc):
         status == 400 and ("API_KEY_INVALID" in str(exc) or "API key not valid" in str(exc)))
 
 
-def llm_run_error(reviewer, exc):
+def llm_run_error(reviewer, exc, key_env="GEMINI_API_KEY"):
     """Traduz a falha do provedor em causa e ação para quem abriu o PR."""
     who = f"Revisor de IA ({reviewer})"
     status = _http_status(exc)
+    if status == 402:  # OpenRouter: conta sem créditos
+        return RunError("llm_unavailable", f"{who} sem créditos no provedor de LLM (HTTP 402).",
+                        f"Não é problema no seu código. Avise o time de plataforma para "
+                        f"recarregar os créditos e {RERUN}.")
     if status == 429:
         return RunError("llm_unavailable", f"{who} sem cota no provedor de LLM (HTTP 429).",
                         f"Não é problema no seu código. Aguarde a cota renovar e {RERUN}.")
@@ -206,7 +335,7 @@ def llm_run_error(reviewer, exc):
     if _key_rejected(status, exc):
         return RunError("llm_failure", f"{who}: a chave do provedor de LLM foi recusada "
                                        f"(HTTP {status}).",
-                        "Verifique o segredo GEMINI_API_KEY em Settings → Secrets and "
+                        f"Verifique o segredo {key_env} em Settings → Secrets and "
                         "variables → Actions do repositório.")
     if status is not None:
         return RunError("llm_failure", f"{who}: o provedor de LLM recusou a requisição "
@@ -282,5 +411,5 @@ def run_llm(policies, files, provider, config):
                 findings += accepted
                 discarded += dropped
             except Exception as exc:  # noqa: BLE001 - bloqueia, sem derrubar os outros revisores
-                errors.append(llm_run_error(reviewer, exc))
+                errors.append(llm_run_error(reviewer, exc, api_key_env(config.provider)))
     return findings, errors, discarded

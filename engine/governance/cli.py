@@ -16,7 +16,7 @@ from .diff import collect_changes
 from .evaluation import coverage_problems, format_report, gate, load_cases, run_eval
 from .export import write_exports
 from .github import publish_comment
-from .llm import PROMPTS_DIR, build_provider
+from .llm import PROMPTS_DIR, api_key_env, build_provider
 from .model import GovernanceError, RunError
 from .policy import load_policies, policies_digest
 from .report import build_config_error_markdown, build_markdown, build_sarif
@@ -36,6 +36,7 @@ def _load_all(strict_waivers=False):
 def cmd_validate(_args):
     policies, _, _ = _load_all(strict_waivers=True)
     bundle = load_bundle()
+    api_key_env(bundle.llm.provider)  # provedor desconhecido invalida o bundle
     reviewers = {p.llm["reviewer"] for p in policies if p.llm}
     problems = [f"prompt ausente para o revisor '{r}'"
                 for r in reviewers if not (PROMPTS_DIR / f"{r}.md").is_file()]
@@ -60,9 +61,10 @@ def _head_commit(repo):
 def _provider(args, bundle):
     if args.no_llm:
         return None
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    key_env = api_key_env(bundle.llm.provider)
+    api_key = os.environ.get(key_env, "").strip()
     if not api_key:
-        logger.warning("GEMINI_API_KEY ausente: camada LLM indisponível")
+        logger.warning("%s ausente: camada LLM indisponível", key_env)
         return None
     return build_provider(bundle.llm, api_key)
 
@@ -191,9 +193,10 @@ def cmd_eval(args):
         bundle = replace(bundle, llm=replace(bundle.llm, model=args.model))
     provider = None
     if args.llm:
-        api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        key_env = api_key_env(bundle.llm.provider)
+        api_key = os.environ.get(key_env, "").strip()
         if not api_key:
-            raise GovernanceError("--llm exige GEMINI_API_KEY")
+            raise GovernanceError(f"--llm exige {key_env}")
         provider = build_provider(bundle.llm, api_key)
     report = run_eval(policies, load_cases(), provider, bundle.llm, repeat=args.repeat)
     report["model"] = bundle.llm.model if args.llm else None

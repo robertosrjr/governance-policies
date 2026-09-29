@@ -213,7 +213,8 @@ avaliado). Esses arquivos orientam assistentes de IA, não o veredito.
 1. O PR é aberto no repositório-alvo, ou recebe um push, ou é reaberto.
 2. O `.github/workflows/governance.yml` do repositório-alvo chama o workflow central
    [governance-required.yml](../.github/workflows/governance-required.yml) numa **tag**
-   deste repositório (ex.: `v1.0.0`) e repassa os segredos (`secrets: inherit`).
+   deste repositório (ex.: `v1.2.0`) e repassa só a chave da OpenRouter do projeto
+   (`secrets: OPENROUTER_API_KEY: ...`; nunca `secrets: inherit`, que entrega todos).
 3. O workflow central:
    1. baixa o código do PR em `target/`, como dado;
    2. baixa este repositório na tag em `governance/`: motor, políticas, prompts e modelo;
@@ -341,7 +342,8 @@ PYTHONPATH=engine python -m governance review --repo ../../java/virtualthreads -
 ```
 
 - `--no-llm` roda só a camada determinística, que é a que bloqueia. Não precisa de chave.
-- Sem `--no-llm`, é preciso `GEMINI_API_KEY` no ambiente.
+- Sem `--no-llm`, é preciso a chave do provedor do bundle no ambiente
+  (`OPENROUTER_API_KEY` desde o bundle 1.1.0).
 - A saída termina em `Veredito: APPROVED` ou `Veredito: BLOCKED`. Os arquivos ficam em
   `governance-out/`.
 
@@ -372,7 +374,9 @@ que encontramos, está no [manual de configuração](manual-configuracao.md).
    ser iguais.
 3. **Remova** qualquer workflow de IA que leia prompts ou scripts do próprio repositório
    (na PoC eram `ai-governance.yml` e `.github/scripts/`).
-4. **Segredo**: `GEMINI_API_KEY` em *Settings → Secrets and variables → Actions*.
+4. **Segredo**: uma chave da OpenRouter só deste projeto, em *Settings → Secrets and
+   variables → Actions*, repassada no `secrets:` do `governance.yml` como
+   `OPENROUTER_API_KEY` ([ADR-GOV-001](../adrs/ADR-GOV-001-provedor-llm-openrouter.md)).
 5. **Ruleset** do branch principal (*Settings → Rules → Rulesets*):
    - Bypass list vazia;
    - Restrict deletions e Block force pushes;
@@ -396,8 +400,8 @@ formal até migrar para a organização.
 2. Aplique [templates/org-ruleset.json](../templates/org-ruleset.json) com o
    `repository_id` deste repositório e a tag: ele obriga **todos** os repositórios a
    rodar o workflow central, sem que eles possam removê-lo.
-3. Segredos da organização: `GEMINI_API_KEY` e, se este repositório for privado,
-   `GOVERNANCE_READ_TOKEN`.
+3. Segredos da organização: `OPENROUTER_API_KEY` (restrito aos repositórios selecionados)
+   e, se este repositório for privado, `GOVERNANCE_READ_TOKEN`.
 4. Apague o `governance.yml` dos repositórios-alvo (o ruleset substitui).
 5. Troque os usuários do CODEOWNERS por times e ligue "Require review from Code Owners".
 
@@ -476,7 +480,7 @@ enquanto houver waiver vencido, para forçar a limpeza.
 Isso é uma nova versão do revisor LLM:
 
 1. Suba `bundle_version` em [engine/bundle.yaml](../engine/bundle.yaml).
-2. Rode o eval com LLM (localmente com `GEMINI_API_KEY`, ou pelo `ci.yml` em
+2. Rode o eval com LLM (localmente com `OPENROUTER_API_KEY`, ou pelo `ci.yml` em
    *Actions → ci → Run workflow* com `llm_repeat` > 0):
    ```bash
    PYTHONPATH=engine python -m governance eval --llm --repeat 5

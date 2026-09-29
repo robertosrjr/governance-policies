@@ -2,11 +2,15 @@
 # Trocar o modelo, a temperatura ou o orçamento é uma NOVA versão do bundle e exige
 # `python -m governance eval --llm` sem regressão (ver adrs/ADR-GOV-000, "LLMOps").
 # O repo-alvo não consegue sobrescrever nada daqui: não há variável de ambiente para isso.
-bundle_version: 1.0.0
+bundle_version: 1.1.0
 llm:
-  provider: gemini
-  # Modelo herdado da PoC (virtualthreads). Validar com o eval antes do primeiro enforce.
-  model: gemini-3.5-flash-lite
+  # OpenRouter (ADR-GOV-001). A chave é OPENROUTER_API_KEY, repassada pelo repo-alvo.
+  provider: openrouter
+  # Modelo fixo, o mesmo de 1.0.0. Roteadores (openrouter/auto, typesafe/jev-router)
+  # trocam o modelo a cada chamada e invalidam o eval: não use aqui.
+  model: google/gemini-3.5-flash-lite
   temperature: 0
   max_input_chars: 150000
+  # Teto da resposta. Sem ele a OpenRouter reserva a saída máxima do modelo (HTTP 402).
+  max_output_tokens: 8192
   max_attempts: 3

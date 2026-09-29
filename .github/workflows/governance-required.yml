@@ -20,6 +20,19 @@ on:
         description: "Ref deste repositório (tag ou SHA); a mesma do 'uses:' do chamador"
         required: true
         type: string
+    # Repasse explícito (menor privilégio): o chamador entrega só estes segredos, com o
+    # nome que quiser do lado dele, em vez de `secrets: inherit` (que entrega todos).
+    # Não são `required`: sem a chave do provedor o motor bloqueia com a causa e a ação.
+    secrets:
+      OPENROUTER_API_KEY:
+        description: "Chave da OpenRouter do projeto (provider: openrouter no bundle)"
+        required: false
+      GEMINI_API_KEY:
+        description: "Chave do Gemini (provider: gemini no bundle)"
+        required: false
+      GOVERNANCE_READ_TOKEN:
+        description: "Leitura deste repositório, se ele for privado"
+        required: false
 
 permissions:
   contents: read
@@ -94,6 +107,7 @@ jobs:
           PYTHONPATH: governance/engine
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.base_ref }}
