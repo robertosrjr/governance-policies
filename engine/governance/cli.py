@@ -1,4 +1,4 @@
-"""CLI: python -m governance {validate,review,export,eval,verify-evidence}.
+"""CLI: python -m governance {validate,review,export,eval,verify-evidence,dashboard}.
 
 Códigos de saída: 0 aprovado/ok · 1 bloqueado/reprovado · 2 configuração inválida.
 """
@@ -12,6 +12,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+from .dashboard import build_metrics, mode_since, render_html, render_markdown
 from .diff import collect_changes
 from .evidence import check_result
 from .evaluation import coverage_problems, format_report, gate, load_cases, run_eval
@@ -35,6 +36,18 @@ def _load_all(strict_waivers=False):
     return policies, waivers, warnings
 
 
+def gitlink_problems(repo_root):
+    """Submódulo versionado quebra o actions/checkout do workflow central (ADR-GOV-007)."""
+    try:
+        staged = subprocess.run(["git", "ls-files", "-s"], cwd=repo_root, capture_output=True,
+                                text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []  # fora de um checkout git não há o que verificar
+    return [f"submódulo versionado por engano: {line.split(chr(9), 1)[1]} "
+            "(git rm --cached e .gitignore)"
+            for line in staged.splitlines() if line.startswith("160000 ")]
+
+
 def cmd_validate(_args):
     policies, _, _ = _load_all(strict_waivers=True)
     bundle = load_bundle()
@@ -48,6 +61,7 @@ def cmd_validate(_args):
         problems += [f"{p.id}: llm.engine=jev exige a seção jev no bundle.yaml"
                      for p in policies if p.llm_engine == "jev"]
     problems += coverage_problems(policies, load_cases())
+    problems += gitlink_problems(ROOT)
     if problems:
         raise GovernanceError("Bundle inválido:\n  " + "\n  ".join(sorted(set(problems))))
     logger.info("Bundle %s válido: %d políticas", bundle.version, len(policies))
@@ -264,6 +278,58 @@ def cmd_verify_evidence(args):
     return 1 if problems else 0
 
 
+def _dashboard_repositories(args):
+    repos = list(args.repo or ())
+    if args.repos_file:
+        repos += [line.strip() for line in Path(args.repos_file).read_text(encoding="utf-8")
+                  .splitlines() if line.strip() and not line.startswith("#")]
+    return sorted(set(repos))
+
+
+def cmd_dashboard(args):
+    from datetime import date
+
+    from . import dashboard_github
+
+    policies = load_policies(POLICIES_DIR, ADRS_DIR)
+    waivers, waiver_warnings = load_waivers(WAIVERS_DIR, {p.id for p in policies})
+    repositories = _dashboard_repositories(args)
+    warnings = list(waiver_warnings)
+    if args.from_dir:
+        results, false_positives = dashboard_github.load_from_dir(args.from_dir), []
+        warnings.append("modo offline: falso positivo não medido (sem Code Scanning)")
+    else:
+        if not repositories:
+            raise GovernanceError("Informe --repo ou --repos-file (ou --from-dir)")
+        token = os.environ.get("DASHBOARD_TOKEN") or os.environ.get("GITHUB_TOKEN")
+        if not token:
+            raise GovernanceError("dashboard exige DASHBOARD_TOKEN ou GITHUB_TOKEN")
+        results, false_positives, collect_warnings = dashboard_github.collect(
+            dashboard_github.GitHubClient(token), repositories, args.window_days)
+        warnings += collect_warnings
+    metrics = build_metrics(
+        policies, results, false_positives, waivers, today=date.today(),
+        window_days=args.window_days,
+        repositories=repositories or sorted({(r["result"].get("subject") or {}).get("repository", "?")
+                                             for r in results}),
+        policy_since={p.id: mode_since(POLICIES_DIR / f"{p.id}.yaml") for p in policies})
+    metrics["warnings"] = warnings
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "dashboard.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2),
+                                        encoding="utf-8")
+    (out / "dashboard.html").write_text(render_html(metrics), encoding="utf-8")
+    markdown = render_markdown(metrics)
+    (out / "dashboard.md").write_text(markdown, encoding="utf-8")
+    if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(summary_path, "a", encoding="utf-8") as summary:
+            summary.write(markdown)
+    for warning in warnings:
+        logger.warning("  %s", warning)
+    logger.info("Painel: %d avaliação(ões) em %s", metrics["overview"]["evaluations"], out)
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="governance", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -299,6 +365,14 @@ def build_parser():
     gate.add_argument("--repository", required=True, help="owner/repo que vai implantar")
     gate.add_argument("--commit", required=True, help="último commit do PR avaliado")
     gate.set_defaults(func=cmd_verify_evidence)
+
+    dash = sub.add_parser("dashboard", help="painel de conformidade (métricas por política)")
+    dash.add_argument("--repo", action="append", help="owner/repo (repetível)")
+    dash.add_argument("--repos-file", help="arquivo com um owner/repo por linha")
+    dash.add_argument("--from-dir", help="modo offline: pasta com result.json exportados")
+    dash.add_argument("--window-days", type=int, default=90)
+    dash.add_argument("--out", default="dashboard-out")
+    dash.set_defaults(func=cmd_dashboard)
     return parser
 
 

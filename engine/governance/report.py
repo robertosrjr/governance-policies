@@ -97,7 +97,9 @@ def build_markdown(result):
         parts.append("<details><summary>Avisos</summary>\n\n"
                      + "\n".join(f"- {sanitize(w)}" for w in result["warnings"]) + "\n</details>")
     parts.append("_⛔ bloqueia · ⚠️ não bloqueia · 🔎 achado de LLM (consultivo). "
-                 "Exceções: waiver no repositório central, nunca por comentário._")
+                 "Exceções: waiver no repositório central, nunca por comentário. "
+                 "Achado errado? Em Security → Code scanning, dispense o alerta com o motivo "
+                 "\"False positive\": entra na medição da regra (não desbloqueia o PR)._")
     report = "\n\n".join(parts)
     if len(report) > MAX_COMMENT_CHARS:
         report = (report[:MAX_COMMENT_CHARS]

@@ -1,0 +1,44 @@
+# Painel de conformidade (ADR-GOV-006): semanal e sob demanda. Lê, nos repositórios de
+# dashboard/repos.txt, os result.json das avaliações e os alertas do Code Scanning
+# dispensados como falso positivo, e publica o painel como artefato e no resumo.
+name: compliance-dashboard
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"   # segunda-feira, 8h em Brasília
+  workflow_dispatch:
+    inputs:
+      window_days:
+        description: "Janela em dias (o artefato de avaliação expira em 90)"
+        default: "90"
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: engine
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0          # histórico: data em que cada política entrou no modo atual
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install --no-deps --require-hashes -r engine/requirements.lock
+      - name: Gerar o painel
+        env:
+          # Token só de leitura (Actions e Code Scanning) nos repositórios de repos.txt.
+          # O GITHUB_TOKEN deste repositório não enxerga os outros.
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
+          WINDOW_DAYS: ${{ inputs.window_days || '90' }}
+        run: python -m governance dashboard --repos-file dashboard/repos.txt --window-days "$WINDOW_DAYS" --out dashboard-out
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compliance-dashboard-${{ github.run_id }}
+          path: dashboard-out/
+          retention-days: 90

@@ -154,3 +154,13 @@ def test_waiver_template_is_valid(tmp_path):
                                                 encoding="utf-8")
     valid, warnings = load_waivers(tmp_path, {"LGPD-LOG-001"}, today=date(2026, 9, 25))
     assert warnings == [] and len(valid) == 1
+
+
+def test_validate_rejects_versioned_gitlinks(repo):
+    from governance.cli import gitlink_problems
+
+    assert gitlink_problems(repo) == []
+    git(repo, "update-index", "--add", "--cacheinfo",
+        "160000,028c1678ef789563ae4fc51472135c5cbfcb6db9,.claude/worktrees/agent-x")
+    problems = gitlink_problems(repo)
+    assert len(problems) == 1 and ".claude/worktrees/agent-x" in problems[0]

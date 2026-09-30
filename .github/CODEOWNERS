@@ -7,6 +7,7 @@
 /engine/bundle.yaml        @robertosrjr
 /engine/governance/prompts/ @robertosrjr
 /.github/                  @robertosrjr
+/dashboard/                @robertosrjr
 
 /policies/ARCH-*           @robertosrjr
 /policies/LGPD-*           @robertosrjr

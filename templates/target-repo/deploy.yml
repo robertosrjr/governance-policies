@@ -16,9 +16,9 @@ permissions:
 
 jobs:
   governance-gate:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-deploy-gate.yml@v1.7.1
+    uses: robertosrjr/governance-policies/.github/workflows/governance-deploy-gate.yml@v1.8.0
     with:
-      governance_ref: v1.7.1
+      governance_ref: v1.8.0
 
   deploy:
     needs: governance-gate

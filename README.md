@@ -10,11 +10,56 @@ problemas comuns): [docs/guia.md](docs/guia.md).
 **Manual de configuração** (passo a passo para ligar a governança em um repositório, do
 zero ao primeiro PR bloqueado): [docs/manual-configuracao.md](docs/manual-configuracao.md).
 
-Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md).
-Operação em instituição financeira (provedor de IA, rollout, segregação de funções,
-evidência): [ADR-GOV-003](adrs/ADR-GOV-003-operacao-em-instituicao-financeira.md).
+**Fluxo da esteira** (diagramas de sequência: ciclo de vida de uma regra, avaliação do
+PR, deploy e auditoria, e cada arquivo lido ou gerado): [docs/fluxo-da-esteira.md](docs/fluxo-da-esteira.md).
+
+Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md). Todas as
+decisões estão em [Decisões de arquitetura (ADRs)](#decisões-de-arquitetura-adrs).
 Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 `docs/Governança SecLLMOps Enterprise.docx`.
+
+## Decisões de arquitetura (ADRs)
+
+O ADR explica o porquê; a regra verificável fica em `policies/*.yaml`, que aponta o seu
+ADR. *Proposto* = depende de decisão fora do time de plataforma (jurídico, segurança da
+informação, plataforma corporativa).
+
+**A plataforma**
+
+| ADR | Decisão | Status |
+|---|---|---|
+| [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md) | Modelo: quem governa fica separado de quem é governado; determinístico primeiro, LLM só aditivo; uma regra, uma fonte; fail-closed | Aceito |
+| [ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md) | Provedor de LLM via OpenRouter, com modelo fixo e chave por projeto | Aceito |
+| [ADR-GOV-002](adrs/ADR-GOV-002-julgamento-tipado-jev.md) | Julgamento tipado (Jev): a regex localiza, o modelo só devolve probabilidade | Aceito |
+| [ADR-GOV-003](adrs/ADR-GOV-003-operacao-em-instituicao-financeira.md) | Operação em instituição financeira: dado pessoal fora do LLM, provedor de IA (CMN 4.893, LGPD Art. 33), rollout `warn` → `enforce`, segregação de funções | Proposto |
+| [ADR-GOV-004](adrs/ADR-GOV-004-decisao-estrutural-exige-adr.md) | Decisão estrutural (dependência, módulo, datastore novo) chega com o seu ADR | Aceito |
+| [ADR-GOV-005](adrs/ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md) | Gate de deploy verifica a atestação; evidência em armazenamento imutável | Aceito |
+| [ADR-GOV-006](adrs/ADR-GOV-006-painel-de-conformidade.md) | Painel de conformidade; falso positivo medido pelo Code Scanning | Aceito |
+| [ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md) | Release e versionamento: tag não se move, smoke test no destino, sem submódulo | Aceito |
+| [ADR-GOV-008](adrs/ADR-GOV-008-skills-como-orientacao.md) | Skills orientam, políticas decidem; triagem das skills; políticas como fitness functions | Aceito |
+
+**Regras para o código dos repositórios-alvo**
+
+| ADR | Decisão | Políticas | Status |
+|---|---|---|---|
+| [ADR-ARCH-001](adrs/ADR-ARCH-001-arquitetura-hexagonal.md) | Domínio isolado na arquitetura hexagonal | ARCH-HEX-001/002 | Aceito |
+| [ADR-ARCH-002](adrs/ADR-ARCH-002-relogio-e-fuso-explicitos.md) | Relógio injetável e fuso explícito na regra de negócio | ARCH-TIME-001 | Aceito |
+| [ADR-FIN-001](adrs/ADR-FIN-001-aritmetica-monetaria.md) | Aritmética monetária exata e arredondamento explícito | FIN-MONEY-001 | Aceito |
+| [ADR-FIN-002](adrs/ADR-FIN-002-idempotencia-em-escrita-financeira.md) | Escrita financeira idempotente; nada de retry cego | RES-IDEMP-001 | Aceito |
+| [ADR-LGPD-001](adrs/ADR-LGPD-001-dado-pessoal-em-observabilidade.md) | Dado pessoal fora de logs, traces, métricas e exceções | LGPD-LOG-001 | Aceito |
+| [ADR-LGPD-002](adrs/ADR-LGPD-002-dado-pessoal-real-no-repositorio.md) | Repositório não é ambiente para dado pessoal real | LGPD-DATA-001 | Aceito |
+| [ADR-SEC-001](adrs/ADR-SEC-001-segredos-e-manipulacao-de-revisores.md) | Segredos, ofuscação e manipulação de revisores | SEC-SECRET/UNICODE/OBFUSC-001, LLM-INJ-001 | Aceito |
+| [ADR-SEC-002](adrs/ADR-SEC-002-requisitos-owasp-2025.md) | Requisitos OWASP Top 10:2025; configuração Spring segura | OWASP-A01..A10, SEC-CONFIG-001 | Aceito |
+| [ADR-SEC-003](adrs/ADR-SEC-003-criptografia-e-dados-de-cartao.md) | Criptografia verificável e nenhum dado de cartão no repositório | SEC-CRYPTO-001, SEC-PAN-001 | Aceito |
+| [ADR-DATA-001](adrs/ADR-DATA-001-evolucao-de-schema.md) | Migrações imutáveis e expand/contract | DATA-MIG-001/002 | Aceito |
+| [ADR-DATA-002](adrs/ADR-DATA-002-residencia-de-dados.md) | Residência de dados em região aprovada | DATA-RES-001 | Proposto |
+| [ADR-API-001](adrs/ADR-API-001-contratos-compativeis.md) | Contratos de API e de eventos evoluem sem quebrar consumidores | API-CONTRACT-001, EVT-SCHEMA-001 | Aceito |
+| [ADR-SUP-001](adrs/ADR-SUP-001-cadeia-de-suprimentos-reproduzivel.md) | Build e imagem reproduzíveis | SUP-DEP-001, SUP-IMG-001 | Aceito |
+| [ADR-AI-001](adrs/ADR-AI-001-ia-nas-aplicacoes.md) | IA pelo gateway corporativo e com modelo fixado | AI-GW-001, AI-MODEL-001, GOV-SELF-001 | Proposto |
+| [ADR-AI-002](adrs/ADR-AI-002-principios-eticos-como-guardrails.md) | Princípios éticos de IA como guardrails | AI-HUMAN-001, AI-FAIR-001, AI-INV-001 | Aceito |
+| [ADR-QUAL-001](adrs/ADR-QUAL-001-regras-de-qualidade.md) | Regras objetivas de qualidade de código | QUAL-CODE-001 | Aceito |
+
+Novo ADR: [templates/adr-template.md](templates/adr-template.md).
 
 ## Como funciona
 
@@ -42,6 +87,13 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
    do commit implantado, verifica a atestação (assinada pelo workflow central) e o
    veredito. Sem PR aprovado, não implanta
    ([ADR-GOV-005](adrs/ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md)).
+
+7. Toda segunda-feira, o [painel de conformidade](.github/workflows/compliance-dashboard.yml)
+   consolida os vereditos dos repositórios de `dashboard/repos.txt`: achados, bloqueios e
+   falso positivo por política (alerta dispensado como "False positive" no Code
+   Scanning), prontidão de cada política para `enforce`, bloqueios por erro da esteira e
+   waivers vencendo ([ADR-GOV-006](adrs/ADR-GOV-006-painel-de-conformidade.md)).
+   Localmente: `python -m governance dashboard --repo owner/repo` (com `GITHUB_TOKEN`).
 
 Fluxo completo, arquivos lidos e gerados em cada etapa:
 [docs/fluxo-da-esteira.md](docs/fluxo-da-esteira.md).
@@ -95,7 +147,8 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
   com a retenção definida por compliance e preencher `EVIDENCE_BUCKET` e
   `EVIDENCE_ROLE_ARN` no workflow central; ligar o gate de deploy
   ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)) nos pipelines.
-- Integração com a gestão de mudança (ServiceNow/Jira) e painel de conformidade.
+- Integração com a gestão de mudança (ServiceNow/Jira); criar o segredo `DASHBOARD_TOKEN`
+  (leitura de Actions e Code Scanning nos repositórios) para o painel semanal.
 - Migrar para organização (required workflow + ruleset com 1 aprovação e CODEOWNERS).
 - Gateway corporativo de IA (pré-requisito da AI-GW-001, ADR-AI-001), registry de
   imagens aprovado (ADR-SUP-001) e lista de regiões aprovada (ADR-DATA-002).

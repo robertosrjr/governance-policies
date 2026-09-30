@@ -15,6 +15,8 @@ Todos a partir da raiz, com `PYTHONPATH=engine` (o pytest já configura isso no 
 | `python -m governance eval` | Eval determinístico: todo caso de `eval/cases` sem `requires_llm` deve bater |
 | `python -m governance eval --llm --repeat 5` | Eval do revisor LLM (exige as chaves do bundle: `OPENROUTER_API_KEY` e, para políticas `engine: jev`, `TYPESAFE_API_KEY`) |
 | `python -m governance review --repo <checkout> --base origin/main --no-llm` | Avaliar um repositório localmente |
+| `python -m governance verify-evidence --result r.json --repository o/r --commit <sha>` | Gate de deploy: confere a evidência de um PR (ADR-GOV-005) |
+| `python -m governance dashboard --repo o/r` | Painel de conformidade (`GITHUB_TOKEN`; ADR-GOV-006) |
 
 Dependências: `pip install --no-deps --require-hashes -r engine/requirements-dev.lock`.
 
@@ -28,6 +30,7 @@ engine/governance/     Motor (diff, T0 determinístico, T1 LLM, veredito, SARIF,
 engine/governance/prompts/  Prompts dos revisores LLM (parte do bundle)
 engine/bundle.yaml     Provedor, modelo e orçamento do LLM (parte do bundle)
 eval/cases/            Casos do eval: exemplos executáveis das políticas
+dashboard/repos.txt    Repositórios do painel de conformidade
 exports/               GERADO: pack do AWS Security Agent
 .github/workflows/     governance-required.yml (aplicado aos repos-alvo) e ci.yml
 templates/             Política, ADR, waiver, CODEOWNERS do repo-alvo, ruleset da org

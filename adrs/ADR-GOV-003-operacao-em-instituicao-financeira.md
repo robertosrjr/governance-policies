@@ -48,7 +48,10 @@ Toda política nova entra em `warn` (ADR-GOV-000). Ela sobe para `enforce` quand
 
 - tem casos positivo e negativo no eval (verificado por `validate`);
 - rodou em `warn` por ao menos duas semanas nos repositórios piloto;
-- a taxa de falso positivo medida (achados contestados ÷ achados) ficou abaixo de 5%;
+- a taxa de falso positivo medida (alertas dispensados como "false positive" no Code
+  Scanning ÷ achados) ficou abaixo de 5%, com amostra de ao menos 10 achados; os números
+  vêm do painel de conformidade
+  ([ADR-GOV-006](ADR-GOV-006-painel-de-conformidade.md));
 - os times afetados receberam aviso com data e guia de correção.
 
 A promoção é um PR neste repositório, com os números no corpo do PR.

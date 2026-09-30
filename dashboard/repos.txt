@@ -1,0 +1,3 @@
+# Repositórios que entram no painel de conformidade (um owner/repo por linha).
+# Com organização, liste os repositórios piloto do rollout (ADR-GOV-003).
+robertosrjr/virtualthreads
