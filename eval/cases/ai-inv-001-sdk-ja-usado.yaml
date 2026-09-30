@@ -1,0 +1,29 @@
+id: ai-inv-001-sdk-ja-usado
+description: Arquivo que já usava Spring AI só ganha mais um import do mesmo SDK.
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/infrastructure/adapter/out/llm/ResumoExtratoAdapter.java: |
+    package com.empresa.credito.infrastructure.adapter.out.llm;
+
+    import org.springframework.ai.chat.client.ChatClient;
+    import org.springframework.ai.chat.prompt.Prompt;
+
+    public class ResumoExtratoAdapter {
+        private final ChatClient chatClient;
+
+        public ResumoExtratoAdapter(ChatClient chatClient) { this.chatClient = chatClient; }
+    }
+base_files:
+  app/src/main/java/com/empresa/credito/infrastructure/adapter/out/llm/ResumoExtratoAdapter.java: |
+    package com.empresa.credito.infrastructure.adapter.out.llm;
+
+    import org.springframework.ai.chat.client.ChatClient;
+
+    public class ResumoExtratoAdapter {
+        private final ChatClient chatClient;
+
+        public ResumoExtratoAdapter(ChatClient chatClient) { this.chatClient = chatClient; }
+    }
+expect:
+  AI-INV-001: false

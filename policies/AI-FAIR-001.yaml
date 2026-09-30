@@ -1,0 +1,36 @@
+id: AI-FAIR-001
+title: Dado pessoal sensível como entrada de modelo ou regra de decisão
+version: 1.0.0
+owner: privacidade
+adr: ADR-AI-002
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/src/main/**/*.java", "**/src/main/**/*.kt", "**/*.py", "**/*.sql"]
+  exclude: ["**/src/test/**", "**/test/**", "**/tests/**", "**/db/migration/**"]
+description: >-
+  Origem racial ou étnica, religião, opinião política, filiação sindical, saúde, vida
+  sexual, dado genético ou biométrico (dado pessoal sensível, LGPD Art. 5º II) não
+  entram em modelo, score, regra de aprovação, preço, limite ou segmentação de clientes.
+  Além do tratamento restrito do Art. 11, usar esses dados para decidir é discriminação,
+  e variáveis aparentemente neutras podem reproduzi-la. A regex marca linhas que citam
+  esses atributos e o Jev julga se o dado vira entrada de decisão (ADR-GOV-002).
+remediation: >-
+  Remova o atributo das features e da regra. Se houver base legal e finalidade aprovada
+  por privacidade (ex.: acessibilidade), registre em ADR e no inventário de IA, e mantenha
+  teste de viés que compare resultados entre grupos antes de cada nova versão do modelo.
+targets: [pr-review, claude-code]
+enforcement:
+  llm:
+    engine: jev
+    blocking: false
+    candidates: '(?i)\b\w*(?:ra[cç]a|etnia|etnic|race|ethnic|cor_?da_?pele|religi|orienta[cç][aã]o_?sexual|sexual_?orientation|vida_?sexual|g[eê]nero|gender|sexo\b|\bsex\b|sa[uú]de|health|doen[cç]a|diagnos|defici[eê]ncia|disability|biometr|gen[eé]tic|sindica|union_?member|partido|politic)\w*'
+    threshold: 0.5
+    question: |
+      A linha {line} de `codigo` é: {text}
+      Essa linha faz um dado pessoal sensível (origem racial ou étnica, religião, opinião
+      política, filiação sindical, saúde, deficiência, vida sexual ou orientação sexual,
+      gênero ou sexo, dado genético ou biométrico) entrar como variável de um modelo, de
+      um score, de uma regra de aprovação, preço, taxa ou limite, ou de uma segmentação
+      de clientes? Não conta: cadastro, armazenamento, exibição ou validação do próprio
+      campo, acessibilidade, ou relatório agregado e anonimizado.

@@ -1,0 +1,32 @@
+id: ai-human-001-credito-decidido-pela-ia
+description: A resposta do modelo aprova ou recusa o crédito sem passar por pessoa.
+requires_llm: true
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/application/usecase/AnalisarCreditoUseCase.java: |
+    package com.empresa.credito.application.usecase;
+
+    import com.empresa.credito.application.port.out.ContaPort;
+    import org.springframework.ai.chat.client.ChatClient;
+
+    public class AnalisarCreditoUseCase {
+        private final ChatClient chatClient;
+        private final ContaPort contas;
+
+        public AnalisarCreditoUseCase(ChatClient chatClient, ContaPort contas) {
+            this.chatClient = chatClient;
+            this.contas = contas;
+        }
+
+        public void analisar(String contaId, String historico) {
+            String decisao = chatClient.prompt().user("Aprovar crédito? Histórico: " + historico).call().content();
+            if (decisao.contains("APROVADO")) {
+                contas.aprovarCredito(contaId);
+            } else {
+                contas.recusarCredito(contaId);
+            }
+        }
+    }
+expect:
+  AI-HUMAN-001: true

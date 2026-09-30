@@ -1,0 +1,29 @@
+id: ai-human-001-sugestao-para-analista
+description: A resposta do modelo vai para a fila de um analista, que decide.
+requires_llm: true
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/application/usecase/AnalisarCreditoUseCase.java: |
+    package com.empresa.credito.application.usecase;
+
+    import com.empresa.credito.application.port.out.FilaAnalisePort;
+    import org.springframework.ai.chat.client.ChatClient;
+
+    public class AnalisarCreditoUseCase {
+        private final ChatClient chatClient;
+        private final FilaAnalisePort filaAnalistas;
+
+        public AnalisarCreditoUseCase(ChatClient chatClient, FilaAnalisePort filaAnalistas) {
+            this.chatClient = chatClient;
+            this.filaAnalistas = filaAnalistas;
+        }
+
+        public void analisar(String pedidoId, String historico) {
+            String sugestao = chatClient.prompt().user("Resuma os riscos do histórico: " + historico).call().content();
+            // O analista decide; a sugestão da IA é só apoio e fica registrada no pedido.
+            filaAnalistas.enfileirarParaDecisaoHumana(pedidoId, sugestao);
+        }
+    }
+expect:
+  AI-HUMAN-001: false

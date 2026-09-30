@@ -1,0 +1,28 @@
+id: AI-INV-001
+title: Uso novo de IA sem registro no inventário de IA
+version: 1.0.0
+owner: arquitetura
+adr: ADR-AI-002
+severity: MAJOR
+mode: warn
+scope:
+  include: ["**/*.java", "**/*.kt", "**/*.py", "**/*.ts", "**/*.js"]
+  exclude: ["**/src/test/**", "**/test/**", "**/tests/**"]
+description: >-
+  Todo uso de IA na organização está no inventário de IA, com finalidade, dono, dados
+  usados, modelo, avaliação de risco e se a decisão afeta clientes. Sem inventário não há
+  como auditar, explicar uma decisão nem responder ao titular. O motor aponta o arquivo
+  que passa a importar um cliente de modelo de IA (SDK de provedor, Spring AI,
+  LangChain4j, LangChain) que não importava antes, quando o PR não altera o inventário
+  (`ai-inventory.yaml`) nem um model card.
+remediation: >-
+  Adicione ou atualize a entrada do caso de uso em `ai-inventory.yaml` (ou o model card em
+  `docs/ai/`) no mesmo PR: finalidade, dono, dados, modelo e versão, avaliação de risco,
+  se há decisão sobre cliente e como é a revisão humana.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: requires_companion
+      trigger: '\bimport\s+(?:static\s+)?(?P<key>com\.openai|com\.anthropic|com\.google\.genai|com\.google\.cloud\.vertexai|software\.amazon\.awssdk\.services\.bedrock\w*|dev\.langchain4j|org\.springframework\.ai)\b|^\s*(?:from|import)\s+(?P<key2>openai|anthropic|google\.genai|google\.generativeai|langchain\w*)\b|(?:from\s+|require\s*\(\s*)["''](?P<key3>openai|@anthropic-ai/sdk|@google/genai|@google/generative-ai|@langchain/[\w-]+)["'']'
+      companion: ["**/ai-inventory.yaml", "**/ai-inventory.yml", "**/docs/ai/**/*.md", "**/model-cards/**/*.md"]
+      message: Uso novo de IA sem entrada no inventário de IA (ai-inventory.yaml) ou model card no PR.

@@ -1,0 +1,27 @@
+id: ai-inv-001-uso-novo-com-inventario
+description: Mesmo adaptador, com a entrada no ai-inventory.yaml no mesmo PR.
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/infrastructure/adapter/out/llm/ResumoExtratoAdapter.java: |
+    package com.empresa.credito.infrastructure.adapter.out.llm;
+
+    import org.springframework.ai.chat.client.ChatClient;
+
+    public class ResumoExtratoAdapter {
+        private final ChatClient chatClient;
+
+        public ResumoExtratoAdapter(ChatClient chatClient) { this.chatClient = chatClient; }
+    }
+  ai-inventory.yaml: |
+    casos_de_uso:
+      - id: resumo-extrato
+        finalidade: Resumir o extrato para o atendimento
+        dono: time-atendimento
+        dados: [extrato sem CPF (removido no gateway)]
+        modelo: gemini-3.5-flash-lite-001
+        decide_sobre_cliente: false
+        revisao_humana: o atendente lê o resumo
+        avaliacao_de_risco: baixo (2026-09-30)
+expect:
+  AI-INV-001: false

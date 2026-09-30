@@ -1,0 +1,17 @@
+id: ai-inv-001-uso-novo-sem-inventario
+description: Adaptador novo passa a usar Spring AI e o PR não altera o inventário de IA.
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/infrastructure/adapter/out/llm/ResumoExtratoAdapter.java: |
+    package com.empresa.credito.infrastructure.adapter.out.llm;
+
+    import org.springframework.ai.chat.client.ChatClient;
+
+    public class ResumoExtratoAdapter {
+        private final ChatClient chatClient;
+
+        public ResumoExtratoAdapter(ChatClient chatClient) { this.chatClient = chatClient; }
+    }
+expect:
+  AI-INV-001: true

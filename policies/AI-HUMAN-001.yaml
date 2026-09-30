@@ -1,0 +1,36 @@
+id: AI-HUMAN-001
+title: Decisão sobre cliente tomada só pela IA, sem revisão humana nem contestação
+version: 1.0.0
+owner: arquitetura
+adr: ADR-AI-002
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/src/main/**/*.java", "**/src/main/**/*.kt", "**/*.py"]
+  exclude: ["**/src/test/**", "**/test/**", "**/tests/**"]
+description: >-
+  A saída de um modelo de IA não decide sozinha algo que afeta o cliente: aprovar ou
+  negar crédito, definir limite ou preço, bloquear conta ou cartão, recusar sinistro. O
+  titular tem direito a pedir revisão de decisão tomada unicamente por tratamento
+  automatizado (LGPD Art. 20), e só uma pessoa responde pela decisão. A regex marca as
+  linhas que chamam um modelo de IA e o Jev julga se o resultado vira a decisão sem
+  passar por pessoa nem ser registrado para contestação (ADR-GOV-002).
+remediation: >-
+  Use a IA como recomendação: encaminhe a sugestão, com a justificativa, para um analista
+  decidir; ou, se a decisão automática for aprovada pelo comitê, registre modelo, versão,
+  entrada, saída e justificativa, e ofereça canal de revisão humana ao cliente.
+targets: [pr-review, claude-code]
+enforcement:
+  llm:
+    engine: jev
+    blocking: false
+    candidates: '(?i)\b\w*(?:chatclient|chatmodel|llm|gateway(?:ia|ai)|iaclient|aiclient|assistente|modelo(?:ia)?|openai|anthropic|gemini|bedrock|classifier|classificador)\w*\s*\.\s*(?:call|generate|chat|complete|invoke|prompt|predict|classify|decide|score|avaliar|classificar|analisar|decidir)\w*\s*\('
+    threshold: 0.5
+    question: |
+      A linha {line} de `codigo` é: {text}
+      A saída dessa chamada a um modelo de IA decide automaticamente, sem revisão de uma
+      pessoa, algo que afeta um cliente (aprovar ou negar crédito, definir limite, taxa ou
+      preço, bloquear conta, cartão ou transação, recusar pedido ou sinistro)? Não conta:
+      sugestão enviada para um analista decidir, resumo ou apoio a atendimento, uso
+      interno sem efeito sobre o cliente, ou decisão registrada com justificativa e canal
+      de revisão humana visíveis no código.

@@ -1,0 +1,24 @@
+id: ai-fair-001-cadastro-e-acessibilidade
+description: Gênero e deficiência só no cadastro e na acessibilidade do atendimento.
+requires_llm: true
+tags:
+- ia
+files:
+  app/src/main/java/com/empresa/credito/application/usecase/AtualizarCadastroUseCase.java: |
+    package com.empresa.credito.application.usecase;
+
+    import com.empresa.credito.application.port.out.ClienteRepositoryPort;
+
+    public class AtualizarCadastroUseCase {
+        private final ClienteRepositoryPort clientes;
+
+        public AtualizarCadastroUseCase(ClienteRepositoryPort clientes) { this.clientes = clientes; }
+
+        public void atualizar(String clienteId, String nomeSocial, String genero, boolean possuiDeficiencia) {
+            // Cadastro e acessibilidade no atendimento: não entram em score nem em regra de crédito.
+            clientes.salvarDadosCadastrais(clienteId, nomeSocial, genero);
+            clientes.registrarNecessidadeDeAcessibilidade(clienteId, possuiDeficiencia);
+        }
+    }
+expect:
+  AI-FAIR-001: false

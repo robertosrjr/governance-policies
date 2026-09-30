@@ -72,6 +72,9 @@ Fluxo completo, arquivos lidos e gerados em cada etapa:
 | SUP-IMG-001 imagem sem digest, root, curl \| sh | warn | regex |
 | AI-GW-001 SDK ou endpoint de LLM fora do gateway corporativo | warn | regex |
 | AI-MODEL-001 modelo de IA não fixado (latest/auto/roteador) | warn | regex |
+| AI-HUMAN-001 decisão sobre cliente tomada só pela IA (LGPD Art. 20) | warn | regex de candidatos + Jev |
+| AI-FAIR-001 dado pessoal sensível em modelo, score ou regra de decisão | warn | regex de candidatos + Jev |
+| AI-INV-001 uso novo de IA sem entrada no inventário de IA | warn | requires_companion |
 | GOV-ADR-001 dependência, módulo ou datastore novo sem ADR no PR | warn | requires_companion |
 | LLM-INJ-001 texto dirigido a IA | warn | regex + LLM (sinal) |
 | GOV-SELF-001 mudança em CI, instruções de IA ou configuração de agentes (MCP) | warn | path |

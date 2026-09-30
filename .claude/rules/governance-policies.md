@@ -5,6 +5,15 @@
 Ao gerar ou editar código, respeite as políticas abaixo. As `enforce` + `CRITICAL`
 bloqueiam o merge no pipeline central; as `warn` aparecem como alerta.
 
+## AI-FAIR-001 — Dado pessoal sensível como entrada de modelo ou regra de decisão
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-AI-002`
+- Escopo: `**/src/main/**/*.java`, `**/src/main/**/*.kt`, `**/*.py`, `**/*.sql`
+- Verificação: LLM consultivo
+
+Origem racial ou étnica, religião, opinião política, filiação sindical, saúde, vida sexual, dado genético ou biométrico (dado pessoal sensível, LGPD Art. 5º II) não entram em modelo, score, regra de aprovação, preço, limite ou segmentação de clientes. Além do tratamento restrito do Art. 11, usar esses dados para decidir é discriminação, e variáveis aparentemente neutras podem reproduzi-la. A regex marca linhas que citam esses atributos e o Jev julga se o dado vira entrada de decisão (ADR-GOV-002).
+
+**Correção:** Remova o atributo das features e da regra. Se houver base legal e finalidade aprovada por privacidade (ex.: acessibilidade), registre em ADR e no inventário de IA, e mantenha teste de viés que compare resultados entre grupos antes de cada nova versão do modelo.
+
 ## AI-GW-001 — Chamada a LLM fora do gateway corporativo de IA
 - Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-AI-001`
 - Escopo: `**/*.java`, `**/*.kt`, `**/*.py`, `**/*.ts`, `**/*.js`, `**/*.yml`, `**/*.yaml`, `**/*.properties`, `**/*.json`, `**/.env*`
@@ -13,6 +22,24 @@ bloqueiam o merge no pipeline central; as `warn` aparecem como alerta.
 Aplicação chama LLM só pelo gateway corporativo de IA, que concentra contrato com o provedor (retenção, região), remoção de dado pessoal, limite de custo, auditoria e troca de modelo. SDK de provedor (OpenAI, Anthropic, Gemini, Bedrock, adaptadores de Spring AI e LangChain4j) e endpoint público de provedor ficam restritos ao adaptador do gateway (`infrastructure/**/llm` ou `infrastructure/**/ai`).
 
 **Correção:** Use o cliente do gateway corporativo de IA. Se o gateway é compatível com a API de um provedor, o SDK pode ser usado apenas no adaptador em `infrastructure/**/llm`, com a URL base do gateway vinda de configuração.
+
+## AI-HUMAN-001 — Decisão sobre cliente tomada só pela IA, sem revisão humana nem contestação
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-AI-002`
+- Escopo: `**/src/main/**/*.java`, `**/src/main/**/*.kt`, `**/*.py`
+- Verificação: LLM consultivo
+
+A saída de um modelo de IA não decide sozinha algo que afeta o cliente: aprovar ou negar crédito, definir limite ou preço, bloquear conta ou cartão, recusar sinistro. O titular tem direito a pedir revisão de decisão tomada unicamente por tratamento automatizado (LGPD Art. 20), e só uma pessoa responde pela decisão. A regex marca as linhas que chamam um modelo de IA e o Jev julga se o resultado vira a decisão sem passar por pessoa nem ser registrado para contestação (ADR-GOV-002).
+
+**Correção:** Use a IA como recomendação: encaminhe a sugestão, com a justificativa, para um analista decidir; ou, se a decisão automática for aprovada pelo comitê, registre modelo, versão, entrada, saída e justificativa, e ofereça canal de revisão humana ao cliente.
+
+## AI-INV-001 — Uso novo de IA sem registro no inventário de IA
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-AI-002`
+- Escopo: `**/*.java`, `**/*.kt`, `**/*.py`, `**/*.ts`, `**/*.js`
+- Verificação: motor (requires_companion)
+
+Todo uso de IA na organização está no inventário de IA, com finalidade, dono, dados usados, modelo, avaliação de risco e se a decisão afeta clientes. Sem inventário não há como auditar, explicar uma decisão nem responder ao titular. O motor aponta o arquivo que passa a importar um cliente de modelo de IA (SDK de provedor, Spring AI, LangChain4j, LangChain) que não importava antes, quando o PR não altera o inventário (`ai-inventory.yaml`) nem um model card.
+
+**Correção:** Adicione ou atualize a entrada do caso de uso em `ai-inventory.yaml` (ou o model card em `docs/ai/`) no mesmo PR: finalidade, dono, dados, modelo e versão, avaliação de risco, se há decisão sobre cliente e como é a revisão humana.
 
 ## AI-MODEL-001 — Modelo de IA não fixado (alias latest, auto ou roteador)
 - Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-AI-001`
