@@ -11,7 +11,8 @@ Qualquer erro de execução bloqueia (fail-closed).
 from . import __version__
 
 # 1.1: `errors` passou de texto para {kind, message, action}.
-RESULT_SCHEMA_VERSION = "1.2"
+# 1.3: `classification` (ADR-GOV-009): classe do repositório, IA permitida, modos endurecidos.
+RESULT_SCHEMA_VERSION = "1.3"
 
 
 def mark_blocking(findings, policies_by_id):
@@ -52,7 +53,8 @@ def _summary(blocking, active, errors):
     return "Aprovado: nenhuma violação nas políticas avaliadas."
 
 
-def build_result(*, evaluated, findings, errors, warnings, subject, bundle, stats):
+def build_result(*, evaluated, findings, errors, warnings, subject, bundle, stats,
+                 classification=None):
     policies_by_id = {p.id: p for p in evaluated}
     mark_blocking(findings, policies_by_id)
     active = [f for f in findings if f.waiver_id is None]
@@ -68,6 +70,7 @@ def build_result(*, evaluated, findings, errors, warnings, subject, bundle, stat
         "status": status,
         "summary": _summary(blocking, active, errors),
         "subject": subject,
+        "classification": classification,
         "bundle": {"engine_version": __version__, **bundle},
         "policies_evaluated": [{"id": p.id, "version": p.version, "mode": p.mode}
                                for p in evaluated],

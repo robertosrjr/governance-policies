@@ -48,13 +48,19 @@ def _not_configured(policies, config, llm_required, errors, warnings):
 
 
 def run_layers(files, policies, provider, llm_config, llm_required, jev_provider=None,
-               jev_config=None):
+               jev_config=None, llm_allowed=True, classification_name=None):
     """Executa T0 e T1. Retorna (políticas avaliadas, achados, erros, avisos, descartados)."""
     evaluated = select_policies(policies, files, TARGET)
     findings = run_deterministic(evaluated, files)
     errors, warnings, discarded, semantic_findings = [], [], 0, []
     generative = [p for p in evaluated if p.llm_engine == "generative"]
     judged = [p for p in evaluated if p.llm_engine == "jev"]
+    if not llm_allowed and (generative or judged):
+        # Decisão de classificação (ADR-GOV-009), não falha: registra e segue sem IA.
+        ids = ", ".join(p.id for p in generative + judged)
+        warnings.append(f"Classe {classification_name}: revisão por IA desligada; a parte "
+                        f"semântica de {ids} não foi avaliada (só as regras determinísticas).")
+        generative, judged = [], []
     if generative and provider is None:
         _not_configured(generative, llm_config, llm_required, errors, warnings)
     elif generative:
@@ -75,9 +81,12 @@ def run_layers(files, policies, provider, llm_config, llm_required, jev_provider
 
 def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_ref,
              policies_digest, llm_required, extra_warnings=(), extra_errors=(),
-             jev_provider=None):
+             jev_provider=None, classification=None, raised=()):
+    llm_allowed = classification.llm if classification else True
     evaluated, findings, errors, warnings, discarded = run_layers(
-        files, policies, provider, bundle.llm, llm_required, jev_provider, bundle.jev)
+        files, policies, provider, bundle.llm, llm_required, jev_provider, bundle.jev,
+        llm_allowed=llm_allowed,
+        classification_name=classification.name if classification else None)
     errors = [*extra_errors, *errors]
     apply_waivers(findings, waivers, subject["repository"], subject["commit"])
     return build_result(
@@ -96,4 +105,5 @@ def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_
                     if jev_provider is not None and bundle.jev else None),
         },
         stats={"files_changed": len(files), "llm_findings_discarded": discarded},
+        classification=classification.as_dict(raised) if classification else None,
     )

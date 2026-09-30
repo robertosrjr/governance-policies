@@ -72,6 +72,17 @@ def sanitize_block(text):
     return str(text).replace("`", "'")[:2000]
 
 
+def _classification_note(classification):
+    if not classification:
+        return ""
+    note = f" · classe {sanitize(classification['name'])}"
+    if classification["source"] == "default":
+        note += " (repositório não classificado)"
+    if classification["raised"]:
+        note += " · endurecidas: " + ", ".join(sanitize(p) for p in classification["raised"])
+    return note
+
+
 def build_markdown(result):
     icon = "✅ Aprovado" if result["status"] == "APPROVED" else "❌ Bloqueado"
     bundle = result["bundle"]
@@ -83,7 +94,8 @@ def build_markdown(result):
         f"<sub>bundle {bundle['bundle_version']} · motor {bundle['engine_version']} · "
         f"políticas `{bundle['policies_digest'][:12]}` · "
         f"LLM {sanitize(llm['model']) if llm else 'desligado'}"
-        f"{' · Jev ' + sanitize(bundle['jev']['model']) if bundle.get('jev') else ''}</sub>",
+        f"{' · Jev ' + sanitize(bundle['jev']['model']) if bundle.get('jev') else ''}"
+        f"{_classification_note(result.get('classification'))}</sub>",
     ]
     if result["errors"]:
         parts.append(_errors_section(result))

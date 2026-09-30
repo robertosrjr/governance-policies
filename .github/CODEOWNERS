@@ -9,6 +9,9 @@
 /.github/                  @robertosrjr
 /dashboard/                @robertosrjr
 
+# Classificação: segurança da informação decide a classe de cada repositório.
+/classification/           @robertosrjr
+
 /policies/ARCH-*           @robertosrjr
 /policies/LGPD-*           @robertosrjr
 /policies/SEC-*            @robertosrjr

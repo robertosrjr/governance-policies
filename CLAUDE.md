@@ -31,6 +31,7 @@ engine/governance/prompts/  Prompts dos revisores LLM (parte do bundle)
 engine/bundle.yaml     Provedor, modelo e orçamento do LLM (parte do bundle)
 eval/cases/            Casos do eval: exemplos executáveis das políticas
 dashboard/repos.txt    Repositórios do painel de conformidade
+classification/        Classe de cada repositório-alvo: IA permitida e políticas endurecidas
 exports/               GERADO: pack do AWS Security Agent
 .github/workflows/     governance-required.yml (aplicado aos repos-alvo) e ci.yml
 templates/             Política, ADR, waiver, CODEOWNERS do repo-alvo, ruleset da org

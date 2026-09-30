@@ -77,6 +77,7 @@ def test_overview_separates_blocking_by_rule_from_blocking_by_error(policies):
     o = metrics(policies, results)["overview"]
     assert (o["evaluations"], o["approved"], o["blocked"], o["blocked_by_error_only"]) == (3, 1, 2, 1)
     assert o["errors_by_kind"] == {"llm_unavailable": 1}
+    assert o["evaluations_by_class"] == {"sem registro": 3}
 
 
 def test_expiring_waivers(policies):

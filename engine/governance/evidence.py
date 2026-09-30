@@ -8,7 +8,7 @@ veredito foi de aprovação. Qualquer dúvida reprova (fail-closed).
 
 from .model import GovernanceError
 
-KNOWN_SCHEMAS = ("1.2",)
+KNOWN_SCHEMAS = ("1.2", "1.3")
 
 
 def check_result(result, *, repository, commit):

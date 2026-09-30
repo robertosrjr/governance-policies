@@ -38,9 +38,10 @@ processamento e armazenamento de dados em nuvem). Quatro pontos mudam:
   treinamento, região definida (preferência por processamento no Brasil, ex.: Bedrock
   em sa-east-1 ou Vertex AI em southamerica-east1), avaliação do fornecedor e as
   comunicações exigidas pela Resolução CMN 4.893. Até lá, o gate roda com LLM só em
-  repositórios piloto sem dado sensível. Os demais usam só a camada determinística, o
-  que exige um modo "sem LLM por classificação do repositório" (não implementado; hoje a
-  falta de chave bloqueia).
+  repositórios piloto sem dado sensível. Os demais usam só a camada determinística, pela
+  classificação de repositórios
+  ([ADR-GOV-009](ADR-GOV-009-classificacao-de-repositorios.md)): classes `confidencial`,
+  `restrito` e `nao-classificado` rodam sem IA, sem bloquear por isso.
 
 ### 2. Rollout das políticas
 

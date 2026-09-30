@@ -37,6 +37,7 @@ informação, plataforma corporativa).
 | [ADR-GOV-006](adrs/ADR-GOV-006-painel-de-conformidade.md) | Painel de conformidade; falso positivo medido pelo Code Scanning | Aceito |
 | [ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md) | Release e versionamento: tag não se move, smoke test no destino, sem submódulo | Aceito |
 | [ADR-GOV-008](adrs/ADR-GOV-008-skills-como-orientacao.md) | Skills orientam, políticas decidem; triagem das skills; políticas como fitness functions | Aceito |
+| [ADR-GOV-009](adrs/ADR-GOV-009-classificacao-de-repositorios.md) | Classificação de repositórios: a classe decide se o código vai para a IA e quais regras endurecem | Aceito |
 
 **Regras para o código dos repositórios-alvo**
 
@@ -68,7 +69,11 @@ Novo ADR: [templates/adr-template.md](templates/adr-template.md).
    ref fixada deste repositório. O repo-alvo não consegue alterá-lo.
 2. O workflow faz checkout do PR (como dado) e do motor (desta revisão), roda o gitleaks
    nos commits do PR e o motor sobre o diff.
-3. O motor escolhe as políticas cujo `scope` casa com os arquivos alterados e aplica:
+3. O motor lê a **classe do repositório** em `classification/repositories.yaml`
+   ([ADR-GOV-009](adrs/ADR-GOV-009-classificacao-de-repositorios.md)): `interno` usa IA;
+   `confidencial`, `restrito` e `nao-classificado` rodam sem IA (registrado, sem
+   bloquear por isso); `restrito` sobe SEC-PAN-001, LGPD-DATA-001 e SEC-CRYPTO-001 para
+   `enforce`. Depois escolhe as políticas cujo `scope` casa com os arquivos alterados e aplica:
    - **T0 determinístico**: bloqueia em `enforce` + `CRITICAL`. Tipos de regra:
      `regex` nas linhas adicionadas (com `validator` confere dígito verificador de
      CPF/CNPJ e Luhn de cartão); `path_changed` (arquivo adicionado, modificado,
@@ -142,7 +147,8 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
 - Contratar o provedor de LLM e o Jev como serviço de nuvem avaliado (retenção zero,
   sem treino, região definida, Resolução CMN 4.893 e LGPD Art. 33). Até lá, LLM só em
   repositórios piloto sem dado sensível.
-- Modo "sem LLM" por classificação do repositório (hoje a falta de chave bloqueia).
+- Classificar cada repositório da organização em `classification/repositories.yaml`
+  (fora da lista, o repositório roda sem IA como `nao-classificado`).
 - Criar o bucket de evidências ([templates/evidence-store](templates/evidence-store/main.tf))
   com a retenção definida por compliance e preencher `EVIDENCE_BUCKET` e
   `EVIDENCE_ROLE_ARN` no workflow central; ligar o gate de deploy

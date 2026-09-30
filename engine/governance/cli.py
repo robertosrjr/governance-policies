@@ -12,6 +12,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+from .classification import apply_classification, load_catalog
 from .dashboard import build_metrics, mode_since, render_html, render_markdown
 from .diff import collect_changes
 from .evidence import check_result
@@ -61,6 +62,12 @@ def cmd_validate(_args):
         problems += [f"{p.id}: llm.engine=jev exige a seção jev no bundle.yaml"
                      for p in policies if p.llm_engine == "jev"]
     problems += coverage_problems(policies, load_cases())
+    catalog = load_catalog(policies)  # classe inválida invalida o bundle
+    for classification in catalog.classes.values():
+        effective, raised = apply_classification(policies, classification)
+        problems += [f"classe {classification.name}: {p}" for p in
+                     coverage_problems([q for q in effective if q.id in raised], load_cases())
+                     if "política desconhecida" not in p]
     problems += gitlink_problems(ROOT)
     if problems:
         raise GovernanceError("Bundle inválido:\n  " + "\n  ".join(sorted(set(problems))))
@@ -169,15 +176,22 @@ def _review(args, pr):
     repo = Path(args.repo).resolve()
     files = collect_changes(repo, args.base)
     logger.info("Arquivos alterados: %d", len(files))
+    repository = os.environ.get("GITHUB_REPOSITORY", repo.name)
+    classification = load_catalog(policies).for_repository(repository)
+    policies, raised = apply_classification(policies, classification)
+    logger.info("Classe do repositório: %s (%s)%s", classification.name, classification.source,
+                "" if classification.llm else ", revisão por IA desligada")
     subject = {
-        "repository": os.environ.get("GITHUB_REPOSITORY", repo.name),
+        "repository": repository,
         "commit": _head_commit(repo),
         "base": args.base,
         "pull_request": int(pr) if pr.isdigit() else None,
     }
     result = evaluate(
-        files, policies=policies, waivers=waivers, provider=_provider(args, bundle),
-        jev_provider=_jev_provider(args, bundle), bundle=bundle, subject=subject,
+        files, policies=policies, waivers=waivers,
+        provider=_provider(args, bundle) if classification.llm else None,
+        jev_provider=_jev_provider(args, bundle) if classification.llm else None,
+        bundle=bundle, subject=subject, classification=classification, raised=raised,
         governance_ref=os.environ.get("GOVERNANCE_REF") or None,
         policies_digest=policies_digest(POLICIES_DIR),
         llm_required=not args.no_llm, extra_warnings=waiver_warnings,

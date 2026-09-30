@@ -1,0 +1,35 @@
+# Classificação dos repositórios-alvo (ADR-GOV-009). Decidida aqui, no repositório central
+# (CODEOWNERS de segurança da informação), e nunca pelo próprio repositório-alvo.
+#
+# llm: false  -> nada do código sai para provedor de IA; as políticas semânticas não
+#                rodam e isso fica registrado na evidência (não é erro, é decisão).
+# raise_mode  -> a classe só ENDURECE uma política (audit < warn < enforce), nunca afrouxa.
+#                Subir para enforce exige casos positivo e negativo no eval.
+
+default: nao-classificado
+
+classes:
+  interno:
+    description: Sem dado pessoal nem dado de cartão. Revisão por IA permitida.
+    llm: true
+  confidencial:
+    description: >-
+      Trata dado pessoal (LGPD). Revisão por IA desligada até o contrato do provedor
+      (ADR-GOV-003: retenção zero, sem treino, região definida).
+    llm: false
+  restrito:
+    description: >-
+      Ambiente de dados de cartão (PCI DSS) ou dado pessoal sensível (LGPD Art. 5º II).
+      Sem IA e com as regras de dado de cartão, dado pessoal e criptografia bloqueando.
+    llm: false
+    raise_mode:
+      SEC-PAN-001: enforce
+      LGPD-DATA-001: enforce
+      SEC-CRYPTO-001: enforce
+  nao-classificado:
+    description: >-
+      Repositório ainda não classificado. Tratado com cautela: sem IA até a classificação.
+    llm: false
+
+repositories:
+  robertosrjr/virtualthreads: interno

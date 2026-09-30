@@ -107,6 +107,8 @@ def build_metrics(policies, results, false_positives, waivers, *, today, window_
         rows.append(row)
 
     statuses = Counter(r.get("status") for r in evaluations)
+    by_class = Counter(((r.get("classification") or {}).get("name") or "sem registro")
+                       for r in evaluations)
     error_kinds = Counter(e.get("kind", "?") for r in evaluations for e in r.get("errors") or ())
     blocked_by_error_only = sum(
         1 for r in evaluations if r.get("status") == "BLOCKED" and r.get("errors")
@@ -125,6 +127,7 @@ def build_metrics(policies, results, false_positives, waivers, *, today, window_
             "blocked": statuses.get("BLOCKED", 0),
             "blocked_by_error_only": blocked_by_error_only,
             "errors_by_kind": dict(error_kinds.most_common()),
+            "evaluations_by_class": dict(by_class.most_common()),
             "ready_for_enforce": [r["id"] for r in rows if r["readiness"] == "pronta para enforce"],
             "high_false_positive": [r["id"] for r in rows if r["readiness"] == "falso positivo alto"],
         },
@@ -153,6 +156,8 @@ def render_markdown(metrics):
         f"- Prontas para enforce: {', '.join(o['ready_for_enforce']) or 'nenhuma'}",
         f"- Falso positivo acima do limite: {', '.join(o['high_false_positive']) or 'nenhuma'}",
         f"- Waivers vencendo em até {EXPIRING_DAYS} dias: {len(metrics['waivers']['expiring'])}",
+        "- Avaliações por classe de repositório: " + (", ".join(
+            f"{k}: {v}" for k, v in o["evaluations_by_class"].items()) or "nenhuma"),
         "", "| Política | Modo | Achados | PRs | Bloqueios | Falso positivo | Prontidão |",
         "|---|---|---|---|---|---|---|",
     ]
@@ -216,6 +221,7 @@ def render_html(metrics):
         f"<td>{e(w['expires'])}</td><td class='n {'warn' if w['days_left'] <= EXPIRING_DAYS else ''}'>"
         f"{w['days_left']}</td></tr>" for w in metrics["waivers"]["active"]) \
         or "<tr><td colspan='5' class='muted'>nenhum waiver ativo</td></tr>"
+    by_class = "".join(f"<li>{e(k)}: {v}</li>" for k, v in o["evaluations_by_class"].items())         or "<li>nenhuma</li>"
     c = metrics["criteria"]
     return f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
@@ -233,8 +239,10 @@ dias no modo warn, ao menos {c['min_findings']} achados e falso positivo abaixo 
 <div class="table"><table><thead><tr><th>Política</th><th>Modo (desde)</th><th>Severidade</th>
 <th>Achados</th><th>PRs</th><th>Bloqueios</th><th>Falso positivo</th><th>Prontidão</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></section>
-<section><h2>Saúde da esteira</h2><div class="card">Erros de execução nas avaliações:
-<ul>{errors}</ul></div></section>
+<section><h2>Saúde da esteira</h2><div class="grid">
+<div class="card">Erros de execução nas avaliações:<ul>{errors}</ul></div>
+<div class="card">Avaliações por classe de repositório (ADR-GOV-009):<ul>{by_class}</ul></div>
+</div></section>
 <section><h2>Waivers ativos</h2><div class="table"><table><thead><tr><th>Waiver</th>
 <th>Política</th><th>Repositório</th><th>Vence em</th><th>Dias</th></tr></thead>
 <tbody>{waivers}</tbody></table></div></section>
