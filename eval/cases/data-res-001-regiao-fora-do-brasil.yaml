@@ -1,0 +1,11 @@
+id: data-res-001-regiao-fora-do-brasil
+description: Recurso provisionado em us-east-1.
+tags:
+- financeiro
+files:
+  infra/main.tf: |
+    provider "aws" {
+      region = "us-east-1"
+    }
+expect:
+  DATA-RES-001: true

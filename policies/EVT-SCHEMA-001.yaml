@@ -1,0 +1,25 @@
+id: EVT-SCHEMA-001
+title: Mudança incompatível em schema de evento (Avro)
+version: 1.0.0
+owner: arquitetura
+adr: ADR-API-001
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*.avsc"]
+description: >-
+  Schema de evento publicado mantém compatibilidade nos dois sentidos (produtor novo com
+  consumidor antigo e vice-versa), porque produtores e consumidores são implantados em
+  momentos diferentes e eventos antigos ficam retidos no tópico. O motor compara a base
+  com o PR e aponta campo novo sem default, campo removido sem default, tipo alterado
+  sem promoção válida (int→long é aceito) e símbolo de enum removido.
+remediation: >-
+  Adicione campos sempre com default; remova só campos que têm default; não troque tipos.
+  Mudança que quebra vira um novo tópico ou um novo schema versionado, com migração dos
+  consumidores registrada em ADR. Mantenha também a checagem do Schema Registry no deploy.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: contract
+      format: avro
+      message: Mudança incompatível no schema Avro

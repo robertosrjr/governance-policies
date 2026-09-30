@@ -1,0 +1,9 @@
+id: data-mig-001-migracao-nova
+description: Correção feita numa migração nova; a V1 não muda.
+tags:
+- financeiro
+files:
+  app/src/main/resources/db/migration/V2__saldo_not_null.sql: |
+    UPDATE conta SET saldo = 0 WHERE saldo IS NULL;
+expect:
+  DATA-MIG-001: false

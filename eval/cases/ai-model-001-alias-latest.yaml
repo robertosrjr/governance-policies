@@ -1,0 +1,11 @@
+id: ai-model-001-alias-latest
+description: Modelo configurado por alias latest e por roteador automático.
+tags:
+- financeiro
+files:
+  app/src/main/resources/application.yml: |
+    ia:
+      model: gpt-4o-latest
+      fallback-model: openrouter/auto
+expect:
+  AI-MODEL-001: true

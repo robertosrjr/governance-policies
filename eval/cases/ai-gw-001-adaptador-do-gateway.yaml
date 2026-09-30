@@ -1,0 +1,16 @@
+id: ai-gw-001-adaptador-do-gateway
+description: SDK compatível usado só no adaptador, apontando para o gateway corporativo.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/infrastructure/adapter/out/llm/GatewayIaAdapter.java: |
+    package com.empresa.conta.infrastructure.adapter.out.llm;
+
+    import com.openai.client.OpenAIClient;
+
+    public class GatewayIaAdapter {}
+  app/src/main/resources/application.yml: |
+    ia:
+      url: https://gateway-ia.interno.empresa.com.br/v1
+expect:
+  AI-GW-001: false

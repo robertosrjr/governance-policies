@@ -1,0 +1,41 @@
+id: GOV-ADR-001
+title: Decisão estrutural sem ADR no mesmo PR
+version: 1.0.0
+owner: arquitetura
+adr: ADR-GOV-004
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/settings.gradle"
+    - "**/settings.gradle.kts"
+    - "**/docker-compose*.yml"
+    - "**/docker-compose*.yaml"
+    - "**/compose*.yml"
+    - "**/compose*.yaml"
+description: >-
+  Uma decisão estrutural vem acompanhada do seu registro: o PR que adiciona uma
+  dependência nova, um módulo novo ou um datastore/broker novo traz um ADR (novo ou
+  atualizado) no mesmo PR. O motor só conta o que não existia na base: trocar a versão
+  de uma dependência existente não dispara.
+remediation: >-
+  Adicione ou atualize um ADR em `adrs/`, `docs/adr/` ou `docs/architecture/decisions/`
+  explicando o porquê, as alternativas e as consequências da decisão.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: requires_companion
+      trigger: '<artifactId>(?P<key>[^<]+)</artifactId>|^\s*(?:implementation|api|compileOnly|runtimeOnly|kapt|annotationProcessor)\s*\(?\s*["''](?P<key2>[\w.\-]+:[\w.\-]+)'
+      companion: &adr ["**/adrs/*.md", "**/adr/**/*.md", "**/docs/architecture/decisions/**/*.md"]
+      message: Dependência nova sem ADR no PR.
+    - type: requires_companion
+      trigger: '<module>(?P<key>[^<]+)</module>|^\s*include\s*\(?\s*["''](?P<key2>[^"'']+)'
+      companion: *adr
+      message: Módulo novo sem ADR no PR.
+    - type: requires_companion
+      trigger: '(?i)^\s*image\s*:\s*["'']?(?:[\w.\-]+(?::\d+)?/)*(?P<key>postgres\w*|mysql|mariadb|oracle\w*|mongo\w*|redis\w*|valkey|memcached|cassandra|scylla\w*|elasticsearch|opensearch|kafka|cp-kafka|redpanda\w*|rabbitmq|activemq\w*|nats|pulsar|mssql\w*|sqlserver|db2\w*|couchbase\w*|neo4j|clickhouse\w*|minio|localstack)'
+      companion: *adr
+      message: Datastore ou broker novo sem ADR no PR.

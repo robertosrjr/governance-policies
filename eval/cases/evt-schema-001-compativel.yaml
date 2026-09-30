@@ -1,0 +1,23 @@
+id: evt-schema-001-compativel
+description: Campo novo com default e promoção de int para long.
+tags:
+- financeiro
+files:
+  app/src/main/avro/pagamento.avsc: |
+    {"type": "record", "name": "PagamentoRealizado", "namespace": "com.empresa.pagamentos",
+     "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "valorCentavos", "type": "long"},
+      {"name": "canal", "type": "string", "default": "APP"},
+      {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["OK", "ESTORNADO"]}}
+     ]}
+base_files:
+  app/src/main/avro/pagamento.avsc: |
+    {"type": "record", "name": "PagamentoRealizado", "namespace": "com.empresa.pagamentos",
+     "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "valorCentavos", "type": "int"},
+      {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["OK", "ESTORNADO"]}}
+     ]}
+expect:
+  EVT-SCHEMA-001: false

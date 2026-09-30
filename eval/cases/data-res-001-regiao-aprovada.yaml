@@ -1,0 +1,17 @@
+id: data-res-001-regiao-aprovada
+description: Regiões aprovadas, variável e comentário não disparam.
+tags:
+- financeiro
+files:
+  infra/main.tf: |
+    provider "aws" {
+      region = "sa-east-1"
+    }
+    resource "azurerm_resource_group" "rg" {
+      location = "brazilsouth" # antes: region = "eastus"
+    }
+    module "x" {
+      region = var.region
+    }
+expect:
+  DATA-RES-001: false

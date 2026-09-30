@@ -24,10 +24,15 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 2. O workflow faz checkout do PR (como dado) e do motor (desta revisão), roda o gitleaks
    nos commits do PR e o motor sobre o diff.
 3. O motor escolhe as políticas cujo `scope` casa com os arquivos alterados e aplica:
-   - **T0 determinístico** (regex, path; regex com `validator` confere dígito verificador
-     de CPF/CNPJ e Luhn de cartão): bloqueia em `enforce` + `CRITICAL`;
+   - **T0 determinístico**: bloqueia em `enforce` + `CRITICAL`. Tipos de regra:
+     `regex` nas linhas adicionadas (com `validator` confere dígito verificador de
+     CPF/CNPJ e Luhn de cartão); `path_changed` (arquivo adicionado, modificado,
+     renomeado ou removido); `requires_companion` (se X muda, Y também precisa mudar, ex.:
+     dependência nova exige ADR); `contract` (compara base e PR de um contrato OpenAPI ou
+     Avro e aponta cada quebra de compatibilidade);
    - **T1 LLM** (só políticas com `enforcement.llm`): recebe o conteúdo sem segredos e
-     sem CPF, CNPJ, cartão e e-mail literais (trocados por um marcador do tipo), delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
+     sem CPF, CNPJ, cartão e e-mail literais (trocados por um marcador do tipo),
+     delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
      `llm.blocking: true`, que exige evidência de eval.
 4. Waivers válidos (aprovador ≠ solicitante, até 90 dias) são descontados.
 5. Saídas: comentário no PR, SARIF no Code Scanning, `result.json` atestado (Sigstore) e
@@ -48,14 +53,26 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 | SEC-PAN-001 número de cartão versionado (PCI DSS) | warn | regex + Luhn |
 | LGPD-DATA-001 CPF válido versionado (massa de teste, config, docs) | warn | regex + dígito verificador |
 | SEC-CONFIG-001 configuração Spring insegura em produção | warn | regex |
+| DATA-MIG-001 migração versionada editada, renomeada ou removida | warn | path (só modificado) |
+| DATA-MIG-002 DDL/DML destrutivo sem expand/contract | warn | regex |
+| DATA-RES-001 região de nuvem fora da lista aprovada (Terraform) | warn | regex |
+| ARCH-TIME-001 relógio/fuso da máquina no domínio | warn | regex |
+| API-CONTRACT-001 quebra de contrato OpenAPI | warn | contract (base × PR) |
+| EVT-SCHEMA-001 quebra de schema Avro | warn | contract (base × PR) |
+| RES-IDEMP-001 retry em escrita financeira sem idempotência | warn | regex de candidatos + Jev |
+| SUP-DEP-001 dependência SNAPSHOT ou versão flutuante | warn | regex |
+| SUP-IMG-001 imagem sem digest, root, curl \| sh | warn | regex |
+| AI-GW-001 SDK ou endpoint de LLM fora do gateway corporativo | warn | regex |
+| AI-MODEL-001 modelo de IA não fixado (latest/auto/roteador) | warn | regex |
+| GOV-ADR-001 dependência, módulo ou datastore novo sem ADR no PR | warn | requires_companion |
 | LLM-INJ-001 texto dirigido a IA | warn | regex + LLM (sinal) |
-| GOV-SELF-001 mudança em CI/instruções de IA | warn | path |
+| GOV-SELF-001 mudança em CI, instruções de IA ou configuração de agentes (MCP) | warn | path |
 | QUAL-CODE-001 regras objetivas de qualidade | warn | LLM |
 | OWASP-A01/A02/A03/A04/A10 | audit | só exportadas para o AWS Security Agent |
 
-As políticas de domínio financeiro (FIN, CRYPTO, PAN, LGPD-DATA, CONFIG) entram em
-`warn` e sobem para `enforce` pelos critérios do ADR-GOV-003: casos no eval, duas
-semanas em `warn` nos repositórios piloto e falso positivo abaixo de 5%.
+Toda política nova entra em `warn` e sobe para `enforce` pelos critérios do
+ADR-GOV-003: casos no eval, duas semanas em `warn` nos repositórios piloto e falso
+positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/`).
 
 ### Pendências para produção em instituição financeira
 
@@ -66,6 +83,8 @@ semanas em `warn` nos repositórios piloto e falso positivo abaixo de 5%.
 - Evidência em armazenamento imutável com retenção definida por compliance, e o gate de
   deploy verificando a atestação.
 - Migrar para organização (required workflow + ruleset com 1 aprovação e CODEOWNERS).
+- Gateway corporativo de IA (pré-requisito da AI-GW-001, ADR-AI-001), registry de
+  imagens aprovado (ADR-SUP-001) e lista de regiões aprovada (ADR-DATA-002).
 
 ## Adoção em um repositório-alvo
 

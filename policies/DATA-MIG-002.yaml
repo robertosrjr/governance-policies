@@ -1,0 +1,28 @@
+id: DATA-MIG-002
+title: Mudança destrutiva de schema sem expand/contract
+version: 1.0.0
+owner: dados
+adr: ADR-DATA-001
+severity: CRITICAL
+mode: warn
+scope:
+  include:
+    - "**/db/migration/**/*.sql"
+    - "**/db/changelog/**/*.sql"
+description: >-
+  DROP de tabela, coluna, view ou schema, RENAME, troca de tipo, NOT NULL em coluna
+  existente, TRUNCATE e DELETE sem WHERE numa migração quebram a versão da aplicação que
+  ainda está rodando durante o deploy (rolling update, blue/green) e não têm volta sem
+  restore. A mudança destrutiva segue expand/contract: primeiro adiciona e migra, e só
+  remove numa release posterior, depois que nenhuma versão em produção usa o objeto.
+remediation: >-
+  Divida em etapas: (1) expand: crie a coluna/tabela nova e escreva nas duas; (2) migre os
+  dados; (3) contract: remova o antigo em outra release, com ADR ou registro de mudança
+  aprovado por dados. Mantenha backup verificado antes do contract.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?i)\bDROP\s+(?:TABLE|COLUMN|VIEW|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN|TO)\b|\bALTER\s+COLUMN\s+\S+\s+(?:SET\s+NOT\s+NULL|(?:SET\s+DATA\s+)?TYPE)\b|\bMODIFY\s+(?:COLUMN\s+)?\S+\s+\w+|\bTRUNCATE\b|^\s*DELETE\s+FROM\s+[\w."]+\s*;'
+      strip: '--.*$'
+      message: Mudança destrutiva de schema ou dados numa migração; use expand/contract.

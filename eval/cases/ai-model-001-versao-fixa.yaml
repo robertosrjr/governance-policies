@@ -1,0 +1,12 @@
+id: ai-model-001-versao-fixa
+description: Modelo fixado por versão; outras chaves com 'auto' não disparam.
+tags:
+- financeiro
+files:
+  app/src/main/resources/application.yml: |
+    ia:
+      model: gemini-3.5-flash-lite-001
+      auto-retry: false
+      model-autoscaling: true
+expect:
+  AI-MODEL-001: false

@@ -1,0 +1,35 @@
+id: res-idemp-001-retry-em-leitura-e-com-chave
+description: Retry em consulta e em transferência que reenvia a mesma chave de idempotência.
+requires_llm: true
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/infrastructure/adapter/out/client/TransferenciaClient.java: |
+    package com.empresa.conta.infrastructure.adapter.out.client;
+
+    import java.math.BigDecimal;
+    import org.springframework.retry.annotation.Retryable;
+    import org.springframework.web.client.RestClient;
+
+    public class TransferenciaClient {
+        private final RestClient rest;
+
+        public TransferenciaClient(RestClient rest) { this.rest = rest; }
+
+        @Retryable(maxAttempts = 3)
+        public BigDecimal consultarSaldo(String conta) {
+            return rest.get().uri("/contas/{c}/saldo", conta).retrieve().body(BigDecimal.class);
+        }
+
+        @Retryable(maxAttempts = 3)
+        public void transferir(String idempotencyKey, String origem, String destino, BigDecimal valor) {
+            rest.post().uri("/transferencias")
+                .header("Idempotency-Key", idempotencyKey)
+                .body(new Pedido(origem, destino, valor))
+                .retrieve().toBodilessEntity();
+        }
+
+        record Pedido(String origem, String destino, BigDecimal valor) {}
+    }
+expect:
+  RES-IDEMP-001: false

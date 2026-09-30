@@ -1,6 +1,6 @@
 id: GOV-SELF-001
 title: Mudança em arquivo que controla CI ou assistentes de IA
-version: 1.0.0
+version: 1.1.0
 owner: plataforma
 adr: ADR-GOV-000
 severity: MAJOR
@@ -16,10 +16,18 @@ scope:
     - "**/GEMINI.md"
     - ".cursor/**"
     - "**/.cursorrules"
-    - ".mcp.json"
+    - "**/.mcp.json"
+    - "**/mcp.json"
+    - ".windsurfrules"
+    - ".windsurf/**"
+    - ".continue/**"
+    - ".amazonq/**"
+    - ".aider*"
+    - ".junie/**"
 description: >-
-  Workflows, CODEOWNERS e instruções de assistentes de IA definem como o código é
-  verificado e gerado. Mudanças neles são legítimas, mas precisam de aprovação do time
+  Workflows, CODEOWNERS, instruções de assistentes de IA e configuração de agentes
+  (servidores MCP, ferramentas e permissões) definem como o código é verificado e
+  gerado e o que um agente pode fazer. Mudanças neles são legítimas, mas precisam de aprovação do time
   de plataforma (CODEOWNERS no repo-alvo). O pipeline central não lê nada desses
   arquivos, então alterá-los não muda o veredito; este aviso existe para a revisão
   humana.

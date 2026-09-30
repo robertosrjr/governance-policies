@@ -71,6 +71,14 @@ A promoção é um PR neste repositório, com os números no corpo do PR.
   Lock) com o prazo de retenção definido por compliance, e fazer o gate de deploy
   verificar a atestação.
 
+### 5. Pré-requisitos de plataforma das políticas
+
+Algumas políticas só podem subir para `enforce` quando a plataforma oferecer a
+correção que elas pedem: gateway corporativo de IA (AI-GW-001, ADR-AI-001), registry de
+imagens aprovado (ADR-SUP-001) e lista de regiões aprovada por segurança da informação e
+jurídico (DATA-RES-001, ADR-DATA-002). Bloquear sem oferecer o caminho correto só gera
+waiver.
+
 ## Alternativas rejeitadas
 
 | Alternativa | Motivo |

@@ -1,0 +1,35 @@
+id: SUP-IMG-001
+title: Imagem de contêiner sem digest, rodando como root ou baixando código sem verificação
+version: 1.0.0
+owner: plataforma
+adr: ADR-SUP-001
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - "**/Dockerfile"
+    - "**/Dockerfile.*"
+    - "**/*.Dockerfile"
+    - "**/Containerfile"
+description: >-
+  Imagem base referenciada só por tag (`eclipse-temurin:21-jre`) muda sem aviso quando a
+  tag é republicada: o mesmo Dockerfile gera imagens diferentes e uma imagem comprometida
+  entra sem revisão. Contêiner com `USER root` amplia o impacto de qualquer falha. `ADD`
+  de URL e `curl | sh` executam código baixado sem verificação de integridade. O registry
+  aprovado depende da organização e fica para quando ela for definida (ADR-SUP-001).
+remediation: >-
+  Fixe a imagem por digest (`imagem:tag@sha256:...`), rode com usuário sem privilégio
+  (`USER 10001`), baixe artefatos com checksum verificado (`curl -o x && sha256sum -c`) e
+  prefira imagens do registry corporativo.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?i)^\s*FROM\s+(?:--platform=\S+\s+)?[^\s@]*[:/][^\s@]*(?:\s+AS\s+\S+)?\s*$'
+      message: Imagem base sem digest (@sha256:...); a tag pode mudar sem revisão.
+    - type: regex
+      pattern: '(?i)^\s*USER\s+(?:root|0)(?::\S+)?\s*$'
+      message: Contêiner rodando como root.
+    - type: regex
+      pattern: '(?i)^\s*ADD\s+(?:--\S+\s+)*https?://|\b(?:curl|wget)\b[^|#]*\|\s*(?:sudo\s+)?(?:ba|z)?sh\b'
+      message: Código baixado e executado sem verificação de integridade.

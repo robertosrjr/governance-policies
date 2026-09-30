@@ -1,0 +1,55 @@
+id: api-contract-001-evolucao-compativel
+description: 'Campo opcional e operação nova: compatível.'
+tags:
+- financeiro
+files:
+  app/api/openapi.yaml: |
+    openapi: 3.0.3
+    info: {title: Contas, version: 1.0.0}
+    paths:
+      /contas/{id}:
+        get:
+          parameters:
+            - {name: id, in: path, required: true, schema: {type: string}}
+          responses:
+            '200':
+              description: ok
+              content:
+                application/json:
+                  schema: {$ref: '#/components/schemas/Conta'}
+      /contas/{id}/extrato:
+        get:
+          responses:
+            '200': {description: ok}
+    components:
+      schemas:
+        Conta:
+          type: object
+          properties:
+            id: {type: string}
+            saldo: {type: number}
+            moeda: {type: string}
+base_files:
+  app/api/openapi.yaml: |
+    openapi: 3.0.3
+    info: {title: Contas, version: 1.0.0}
+    paths:
+      /contas/{id}:
+        get:
+          parameters:
+            - {name: id, in: path, required: true, schema: {type: string}}
+          responses:
+            '200':
+              description: ok
+              content:
+                application/json:
+                  schema: {$ref: '#/components/schemas/Conta'}
+    components:
+      schemas:
+        Conta:
+          type: object
+          properties:
+            id: {type: string}
+            saldo: {type: number}
+expect:
+  API-CONTRACT-001: false

@@ -1,0 +1,12 @@
+id: data-mig-001-migracao-editada
+description: Migração V1 que já existe na base foi editada.
+tags:
+- financeiro
+files:
+  app/src/main/resources/db/migration/V1__cria_conta.sql: |
+    CREATE TABLE conta (id BIGINT PRIMARY KEY, saldo NUMERIC(18,2) NOT NULL);
+base_files:
+  app/src/main/resources/db/migration/V1__cria_conta.sql: |
+    CREATE TABLE conta (id BIGINT PRIMARY KEY, saldo NUMERIC(18,2));
+expect:
+  DATA-MIG-001: true

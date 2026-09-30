@@ -1,0 +1,18 @@
+id: arch-time-001-relogio-da-maquina
+description: Caso de uso decide corte de TED com o relógio e o fuso da máquina.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/application/usecase/AgendarTedUseCase.java: |
+    package com.empresa.conta.application.usecase;
+
+    import java.time.LocalDateTime;
+    import java.time.ZoneId;
+
+    public class AgendarTedUseCase {
+        public boolean depoisDoCorte() {
+            return LocalDateTime.now().getHour() >= 17 && ZoneId.systemDefault() != null;
+        }
+    }
+expect:
+  ARCH-TIME-001: true

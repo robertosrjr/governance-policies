@@ -1,0 +1,12 @@
+id: sup-img-001-tag-root-curl
+description: Imagem por tag, USER root e curl | sh.
+tags:
+- financeiro
+files:
+  app/Dockerfile: |
+    FROM eclipse-temurin:21-jre
+    RUN curl -sSL https://get.exemplo.com/agent.sh | sh
+    USER root
+    COPY app.jar /app.jar
+expect:
+  SUP-IMG-001: true

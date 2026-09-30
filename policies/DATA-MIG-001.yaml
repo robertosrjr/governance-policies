@@ -1,0 +1,26 @@
+id: DATA-MIG-001
+title: Migração de banco já versionada foi editada, renomeada ou removida
+version: 1.0.0
+owner: dados
+adr: ADR-DATA-001
+severity: CRITICAL
+mode: warn
+scope:
+  include:
+    - "**/db/migration/**/V*__*.sql"
+    - "**/db/migration/V*__*.sql"
+description: >-
+  Uma migração versionada (Flyway V<versão>__<descrição>.sql) que já existe na base pode
+  ter rodado em homologação e produção. Editá-la faz o checksum divergir (a aplicação não
+  sobe) ou, pior, faz ambientes diferentes terem schemas diferentes. O schema só evolui
+  com uma migração nova. O motor aponta arquivo de migração modificado, renomeado ou
+  removido; arquivo novo é o caminho correto e não dispara.
+remediation: >-
+  Desfaça a alteração na migração existente e crie uma nova (V<próxima versão>__...)
+  com a correção. Se a migração ainda não saiu do seu branch, peça waiver com o commit.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: path_changed
+      change_types: [modified, renamed, deleted]
+      message: Migração versionada alterada; crie uma nova migração em vez de editar a existente.

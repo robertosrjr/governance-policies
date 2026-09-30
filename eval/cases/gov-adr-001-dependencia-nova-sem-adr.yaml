@@ -1,0 +1,36 @@
+id: gov-adr-001-dependencia-nova-sem-adr
+description: Dependência nova (Redis) sem ADR no PR.
+tags:
+- financeiro
+files:
+  app/pom.xml: |
+    <project>
+      <artifactId>conta</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+      <dependencies>
+        <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+          <version>2.17.0</version>
+        </dependency>
+        <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+      </dependencies>
+    </project>
+base_files:
+  app/pom.xml: |
+    <project>
+      <artifactId>conta</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+      <dependencies>
+        <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+          <version>2.17.0</version>
+        </dependency>
+      </dependencies>
+    </project>
+expect:
+  GOV-ADR-001: true

@@ -1,0 +1,31 @@
+id: arch-time-001-clock-injetado
+description: Clock injetado e fuso explícito; relógio do sistema só na infraestrutura.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/application/usecase/AgendarTedUseCase.java: |
+    package com.empresa.conta.application.usecase;
+
+    import java.time.Clock;
+    import java.time.LocalDateTime;
+    import java.time.ZoneId;
+
+    public class AgendarTedUseCase {
+        private static final ZoneId BRASILIA = ZoneId.of("America/Sao_Paulo");
+        private final Clock clock;
+
+        public AgendarTedUseCase(Clock clock) { this.clock = clock; }
+
+        public boolean depoisDoCorte() {
+            return LocalDateTime.now(clock.withZone(BRASILIA)).getHour() >= 17;
+        }
+    }
+  app/src/main/java/com/empresa/conta/infrastructure/config/RelogioConfig.java: |
+    package com.empresa.conta.infrastructure.config;
+
+    public class RelogioConfig {
+        java.time.Clock clock() { return java.time.Clock.systemUTC(); }
+        long agora() { return System.currentTimeMillis(); }
+    }
+expect:
+  ARCH-TIME-001: false

@@ -1,0 +1,22 @@
+id: evt-schema-001-quebra
+description: Campo removido sem default, campo novo sem default e símbolo de enum removido.
+tags:
+- financeiro
+files:
+  app/src/main/avro/pagamento.avsc: |
+    {"type": "record", "name": "PagamentoRealizado", "namespace": "com.empresa.pagamentos",
+     "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "canal", "type": "string"},
+      {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["OK"]}}
+     ]}
+base_files:
+  app/src/main/avro/pagamento.avsc: |
+    {"type": "record", "name": "PagamentoRealizado", "namespace": "com.empresa.pagamentos",
+     "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "valorCentavos", "type": "int"},
+      {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["OK", "ESTORNADO"]}}
+     ]}
+expect:
+  EVT-SCHEMA-001: true

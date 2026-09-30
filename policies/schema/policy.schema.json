@@ -84,6 +84,32 @@
           "required": ["type", "message"],
           "properties": {
             "type": {"const": "path_changed"},
+            "change_types": {
+              "type": "array", "minItems": 1, "uniqueItems": true,
+              "items": {"enum": ["added", "modified", "deleted", "renamed"]}
+            },
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "companion", "message"],
+          "properties": {
+            "type": {"const": "requires_companion"},
+            "trigger": {
+              "description": "Regex nas linhas adicionadas. Grupo nomeado `key`: só conta se o valor não existia na base",
+              "type": "string"
+            },
+            "companion": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["type", "format", "message"],
+          "properties": {
+            "type": {"const": "contract"},
+            "format": {"enum": ["openapi", "avro"]},
             "message": {"type": "string"}
           }
         },

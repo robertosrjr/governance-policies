@@ -1,0 +1,37 @@
+id: RES-IDEMP-001
+title: Retry automático em escrita financeira sem chave de idempotência
+version: 1.0.0
+owner: arquitetura
+adr: ADR-FIN-002
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/src/main/**/*.java", "**/src/main/**/*.kt"]
+  exclude: ["**/src/test/**"]
+description: >-
+  Retry numa operação que movimenta dinheiro (pagamento, transferência, débito,
+  lançamento) só é seguro se o destino deduplicar pela mesma chave de idempotência. Sem
+  ela, um timeout depois do processamento vira cobrança ou transferência em dobro. A
+  regex marca as linhas com retry (@Retryable, RetryTemplate, Resilience4j, retry() do
+  Reactor) e o Jev julga se a operação é uma escrita financeira sem chave (ADR-GOV-002).
+  Consultivo até o eval justificar bloqueio.
+remediation: >-
+  Gere a chave de idempotência antes da primeira tentativa e reenvie a mesma chave em cada
+  retry (header Idempotency-Key ou campo do comando); no destino, deduplique pela chave.
+  Sem isso, não faça retry automático: devolva o erro e reconcilie.
+targets: [pr-review, claude-code]
+enforcement:
+  llm:
+    engine: jev
+    blocking: false
+    candidates: '@Retryable\b|@Retry\b|\bRetryTemplate\b|\bRetry\.(?:of|decorate\w*|ofDefaults)\s*\(|\.retry(?:When)?\s*\(|\bRetrySpec\b'
+    threshold: 0.5
+    question: |
+      A linha {line} de `codigo` é: {text}
+      Essa linha configura retry automático de uma operação que grava ou movimenta dinheiro
+      (pagamento, transferência, Pix, débito, crédito, lançamento, estorno, ou POST/PUT
+      para outro serviço que faça isso) sem uma chave de idempotência reenviada em cada
+      tentativa (idempotencyKey, header Idempotency-Key, id de requisição usado para
+      deduplicar)? Não conta: retry de leitura ou consulta (GET, busca de saldo), operação
+      idempotente por natureza, ou retry em que a mesma chave de idempotência é visível no
+      código enviado.

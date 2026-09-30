@@ -14,6 +14,13 @@
 /policies/LLM-*            @robertosrjr
 /policies/OWASP-*          @robertosrjr
 /policies/FIN-*            @robertosrjr
+/policies/RES-*            @robertosrjr
+/policies/DATA-*           @robertosrjr
+/policies/API-*            @robertosrjr
+/policies/EVT-*            @robertosrjr
+/policies/SUP-*            @robertosrjr
+/policies/AI-*             @robertosrjr
+/policies/GOV-*            @robertosrjr
 
 # Waivers: aprovador deve ser de AppSec e diferente de quem pediu (validado pelo motor).
 /waivers/                  @robertosrjr

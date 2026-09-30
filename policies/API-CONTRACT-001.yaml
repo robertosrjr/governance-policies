@@ -1,0 +1,33 @@
+id: API-CONTRACT-001
+title: Mudança incompatível em contrato OpenAPI publicado
+version: 1.0.0
+owner: arquitetura
+adr: ADR-API-001
+severity: CRITICAL
+mode: warn
+scope:
+  include:
+    - "**/openapi*.yaml"
+    - "**/openapi*.yml"
+    - "**/openapi*.json"
+    - "**/*.openapi.yaml"
+    - "**/*.openapi.yml"
+    - "**/swagger*.yaml"
+    - "**/swagger*.yml"
+    - "**/swagger*.json"
+description: >-
+  Contrato de API publicado não quebra consumidores: nada é removido nem passa a ser
+  obrigatório. O motor compara a versão da base com a do PR e aponta caminho ou operação
+  removidos, parâmetro ou propriedade de corpo obrigatórios novos, resposta 2xx removida
+  e propriedade removida ou com tipo alterado na resposta. Contrato novo não dispara;
+  contrato removido dispara.
+remediation: >-
+  Mudança compatível: adicione campos opcionais e novas operações. Mudança que quebra:
+  publique uma nova versão (/v2) ao lado da atual, com data de descontinuação da antiga
+  combinada com os consumidores e registrada em ADR.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: contract
+      format: openapi
+      message: Mudança incompatível no contrato OpenAPI

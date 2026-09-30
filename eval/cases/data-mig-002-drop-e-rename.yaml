@@ -1,0 +1,10 @@
+id: data-mig-002-drop-e-rename
+description: DROP COLUMN e RENAME na mesma migração.
+tags:
+- financeiro
+files:
+  app/src/main/resources/db/migration/V7__limpa_conta.sql: |
+    ALTER TABLE conta DROP COLUMN agencia_antiga;
+    ALTER TABLE conta RENAME COLUMN nr TO numero;
+expect:
+  DATA-MIG-002: true

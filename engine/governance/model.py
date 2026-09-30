@@ -8,12 +8,18 @@ MODES = ("enforce", "warn", "audit")
 
 @dataclass(frozen=True)
 class ChangedFile:
-    """Arquivo alterado no PR: conteúdo final e linhas adicionadas (nº da linha -> texto)."""
+    """Arquivo alterado no PR: conteúdo final e linhas adicionadas (nº da linha -> texto).
+
+    `status`: added | modified | deleted | renamed. `base_content`: conteúdo na base do
+    PR (arquivos modificados ou renomeados), usado por regras que comparam versões.
+    """
 
     path: str
     content: str
     added_lines: dict = field(default_factory=dict)
     deleted: bool = False
+    status: str = "modified"
+    base_content: str | None = None
 
 
 @dataclass(frozen=True)

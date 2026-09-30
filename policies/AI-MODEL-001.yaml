@@ -1,0 +1,26 @@
+id: AI-MODEL-001
+title: Modelo de IA não fixado (alias latest, auto ou roteador)
+version: 1.0.0
+owner: arquitetura
+adr: ADR-AI-001
+severity: MAJOR
+mode: warn
+scope:
+  include: ["**/*.java", "**/*.kt", "**/*.py", "**/*.ts", "**/*.js",
+            "**/*.yml", "**/*.yaml", "**/*.properties", "**/*.json"]
+  exclude: ["**/package-lock.json"]
+description: >-
+  Um modelo de IA em produção é versionado como qualquer dependência: alias `latest`,
+  `auto` ou roteador trocam o modelo sem aviso, e a avaliação (eval) que aprovou o
+  comportamento deixa de valer. É a mesma regra que o próprio gate segue no
+  `engine/bundle.yaml`. O motor aponta atribuição de modelo terminada em -latest,
+  :latest, auto ou router.
+remediation: >-
+  Fixe a versão do modelo (ex.: um id com data ou número de versão) e troque de modelo
+  por PR, com o eval da aplicação rodando antes do merge.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?i)\bmodel(?:[_.\-]?(?:name|id))?["'']?\s*[:=]\s*["'']?[\w./:\-]*(?:[-:]latest|/auto|\bauto|-router)["'']?\s*(?:[,;)#]|$)'
+      message: Modelo de IA não fixado (latest/auto/roteador); fixe a versão.

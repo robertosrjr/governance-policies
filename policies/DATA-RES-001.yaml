@@ -1,0 +1,30 @@
+id: DATA-RES-001
+title: Infraestrutura em região fora da lista aprovada (residência de dados)
+version: 1.0.0
+owner: seguranca-da-informacao
+adr: ADR-DATA-002
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*.tf", "**/*.tfvars"]
+description: >-
+  Dado de cliente fica em região aprovada (Brasil) salvo decisão registrada. Provisionar
+  recurso em outra região é transferência internacional (LGPD Art. 33) e contratação de
+  nuvem sujeita à Resolução CMN 4.893. O motor aponta `region`/`location` do Terraform
+  fora de sa-east-1 (AWS), southamerica-east1/southamerica-west1 (GCP) e
+  brazilsouth/brazilsoutheast (Azure). Serviços globais que exigem outra região (ex.:
+  certificado do CloudFront em us-east-1) usam waiver com justificativa.
+remediation: >-
+  Use a região aprovada. Se o serviço não existir no Brasil ou for global, registre a
+  decisão (ADR e avaliação de privacidade) e peça waiver restrito ao arquivo.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Código Terraform que provisiona recursos em nuvem.
+  compliant: resources are provisioned in approved Brazilian regions (sa-east-1, southamerica-east1, brazilsouth) or have an approved, documented exception.
+  non_compliant: a provider, module or resource sets a region or location outside the approved Brazilian regions without an approved exception.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\b(?:region|location)\s*=\s*"(?!(?:sa-east-1|southamerica-east1|southamerica-west1|brazilsouth|brazilsoutheast)")[a-z]{2,}[a-z0-9-]*"'
+      strip: '#.*$|//.*$'
+      message: Região fora da lista aprovada (residência de dados).

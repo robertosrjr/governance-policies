@@ -1,0 +1,17 @@
+id: sup-dep-001-versao-flutuante
+description: Faixa de versão no Gradle e SNAPSHOT em propriedade do Maven.
+tags:
+- financeiro
+files:
+  app/build.gradle: |
+    dependencies {
+        implementation 'com.empresa:auditoria-client:1.+'
+    }
+  lib/pom.xml: |
+    <project>
+      <properties>
+        <pix-sdk.version>3.2.0-SNAPSHOT</pix-sdk.version>
+      </properties>
+    </project>
+expect:
+  SUP-DEP-001: true

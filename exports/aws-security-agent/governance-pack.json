@@ -1,14 +1,28 @@
 {
   "packName": "Enterprise-Governance-Pack",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Requisitos organizacionais derivados de policies/. GERADO por `python -m governance export`. Edite policies/*.yaml.",
   "securityRequirements": [
+    {
+      "name": "ai-gw-001",
+      "description": "Chamada a LLM fora do gateway corporativo de IA. Aplicação chama LLM só pelo gateway corporativo de IA, que concentra contrato com o provedor (retenção, região), remoção de dado pessoal, limite de custo, auditoria e troca de modelo. SDK de provedor (OpenAI, Anthropic, Gemini, Bedrock, adaptadores de Spring AI e LangChain4j) e endpoint público de provedor ficam restritos ao adaptador do gateway (`infrastructure/**/llm` ou `infrastructure/**/ai`).",
+      "applicability": "Código e configuração de aplicações que consomem modelos de linguagem.",
+      "complianceCriteria": "COMPLIANT if LLM calls go through the corporate AI gateway; provider SDKs are confined to the gateway adapter package. NON_COMPLIANT if application code imports a provider SDK or calls a public LLM provider endpoint outside the gateway adapter.",
+      "remediationGuidance": "Use o cliente do gateway corporativo de IA. Se o gateway é compatível com a API de um provedor, o SDK pode ser usado apenas no adaptador em `infrastructure/**/llm`, com a URL base do gateway vinda de configuração."
+    },
     {
       "name": "arch-hex-001",
       "description": "Domínio livre de frameworks (Spring, JPA). Classes em `domain` não podem depender de Spring (`org.springframework`) nem de Jakarta/Javax Persistence. A regra do motor cobre import, import static e nome totalmente qualificado (inclusive em anotações). Ofuscação via escapes Unicode é coberta por SEC-OBFUSC-001, e o ArchUnit do build verifica o bytecode.",
       "applicability": "Classes e interfaces Java de produção em pacotes de domínio (**/src/main/java/**/domain/**/*.java).",
       "complianceCriteria": "COMPLIANT if the domain class depends only on Java SE and domain types. NON_COMPLIANT if the domain class references org.springframework.*, jakarta.persistence.* or javax.persistence.* (import, static import or fully qualified name).",
       "remediationGuidance": "Remova anotações Spring/JPA do domínio. Mova o mapeamento ORM para `infrastructure/persistence` (ex.: ClienteEntity) e converta com mappers."
+    },
+    {
+      "name": "data-res-001",
+      "description": "Infraestrutura em região fora da lista aprovada (residência de dados). Dado de cliente fica em região aprovada (Brasil) salvo decisão registrada. Provisionar recurso em outra região é transferência internacional (LGPD Art. 33) e contratação de nuvem sujeita à Resolução CMN 4.893. O motor aponta `region`/`location` do Terraform fora de sa-east-1 (AWS), southamerica-east1/southamerica-west1 (GCP) e brazilsouth/brazilsoutheast (Azure). Serviços globais que exigem outra região (ex.: certificado do CloudFront em us-east-1) usam waiver com justificativa.",
+      "applicability": "Código Terraform que provisiona recursos em nuvem.",
+      "complianceCriteria": "COMPLIANT if resources are provisioned in approved Brazilian regions (sa-east-1, southamerica-east1, brazilsouth) or have an approved, documented exception. NON_COMPLIANT if a provider, module or resource sets a region or location outside the approved Brazilian regions without an approved exception.",
+      "remediationGuidance": "Use a região aprovada. Se o serviço não existir no Brasil ou for global, registre a decisão (ADR e avaliação de privacidade) e peça waiver restrito ao arquivo."
     },
     {
       "name": "fin-money-001",

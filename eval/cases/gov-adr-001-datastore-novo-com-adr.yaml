@@ -1,0 +1,17 @@
+id: gov-adr-001-datastore-novo-com-adr
+description: Datastore novo no compose, com o ADR no mesmo PR.
+tags:
+- financeiro
+files:
+  compose.yaml: |
+    services:
+      cache:
+        image: redis:7.4
+  docs/adr/0007-cache-de-saldo.md: |
+    # 7. Cache de saldo em Redis
+
+    ## Status
+
+    Aceito
+expect:
+  GOV-ADR-001: false

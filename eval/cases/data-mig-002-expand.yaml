@@ -1,0 +1,11 @@
+id: data-mig-002-expand
+description: 'Expand: adiciona coluna e copia dados; o DROP só aparece em comentário.'
+tags:
+- financeiro
+files:
+  app/src/main/resources/db/migration/V7__expand_numero.sql: |
+    ALTER TABLE conta ADD COLUMN numero VARCHAR(20);
+    UPDATE conta SET numero = nr;
+    -- contract (DROP COLUMN nr) em release futura
+expect:
+  DATA-MIG-002: false

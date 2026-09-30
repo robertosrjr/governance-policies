@@ -1,0 +1,31 @@
+id: ARCH-TIME-001
+title: Relógio e fuso implícitos no domínio ou nos casos de uso
+version: 1.0.0
+owner: arquitetura
+adr: ADR-ARCH-002
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - "**/src/main/**/domain/**/*.java"
+    - "**/src/main/**/domain/**/*.kt"
+    - "**/src/main/**/application/**/*.java"
+    - "**/src/main/**/application/**/*.kt"
+description: >-
+  Regra de negócio que depende de data (corte, D+1, vencimento, horário de Pix, dia útil)
+  não pode ler o relógio e o fuso da máquina. `LocalDate.now()`, `new Date()`,
+  `System.currentTimeMillis()` e `ZoneId.systemDefault()` tornam o resultado dependente do
+  servidor (UTC no contêiner, America/Sao_Paulo na estação), impossível de testar na
+  virada do dia e impossível de reproduzir numa auditoria. O relógio entra como
+  dependência (`Clock`) e o fuso é explícito.
+remediation: >-
+  Injete um `java.time.Clock` (ou uma porta `Relogio`) e use `LocalDate.now(clock)`; defina
+  o fuso de negócio explicitamente (`ZoneId.of("America/Sao_Paulo")`) ou trabalhe em UTC e
+  converta na borda. Nos testes, use `Clock.fixed(...)`.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\b(?:LocalDate|LocalDateTime|LocalTime|ZonedDateTime|OffsetDateTime|Instant|YearMonth|Year)\.now\s*\(\s*\)|\bnew\s+(?:java\.util\.)?Date\s*\(\s*\)|\bSystem\.currentTimeMillis\s*\(|\bZoneId\.systemDefault\s*\(|\bTimeZone\.getDefault\s*\(|\bCalendar\.getInstance\s*\(\s*\)'
+      strip: '"(?:[^"\\]|\\.)*"|//.*$'
+      message: Relógio ou fuso da máquina no domínio/aplicação. Injete Clock e use fuso explícito.

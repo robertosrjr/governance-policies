@@ -5,6 +5,33 @@
 Ao gerar ou editar código, respeite as políticas abaixo. As `enforce` + `CRITICAL`
 bloqueiam o merge no pipeline central; as `warn` aparecem como alerta.
 
+## AI-GW-001 — Chamada a LLM fora do gateway corporativo de IA
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-AI-001`
+- Escopo: `**/*.java`, `**/*.kt`, `**/*.py`, `**/*.ts`, `**/*.js`, `**/*.yml`, `**/*.yaml`, `**/*.properties`, `**/*.json`, `**/.env*`
+- Verificação: motor (regex), motor (regex)
+
+Aplicação chama LLM só pelo gateway corporativo de IA, que concentra contrato com o provedor (retenção, região), remoção de dado pessoal, limite de custo, auditoria e troca de modelo. SDK de provedor (OpenAI, Anthropic, Gemini, Bedrock, adaptadores de Spring AI e LangChain4j) e endpoint público de provedor ficam restritos ao adaptador do gateway (`infrastructure/**/llm` ou `infrastructure/**/ai`).
+
+**Correção:** Use o cliente do gateway corporativo de IA. Se o gateway é compatível com a API de um provedor, o SDK pode ser usado apenas no adaptador em `infrastructure/**/llm`, com a URL base do gateway vinda de configuração.
+
+## AI-MODEL-001 — Modelo de IA não fixado (alias latest, auto ou roteador)
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-AI-001`
+- Escopo: `**/*.java`, `**/*.kt`, `**/*.py`, `**/*.ts`, `**/*.js`, `**/*.yml`, `**/*.yaml`, `**/*.properties`, `**/*.json`
+- Verificação: motor (regex)
+
+Um modelo de IA em produção é versionado como qualquer dependência: alias `latest`, `auto` ou roteador trocam o modelo sem aviso, e a avaliação (eval) que aprovou o comportamento deixa de valer. É a mesma regra que o próprio gate segue no `engine/bundle.yaml`. O motor aponta atribuição de modelo terminada em -latest, :latest, auto ou router.
+
+**Correção:** Fixe a versão do modelo (ex.: um id com data ou número de versão) e troque de modelo por PR, com o eval da aplicação rodando antes do merge.
+
+## API-CONTRACT-001 — Mudança incompatível em contrato OpenAPI publicado
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-API-001`
+- Escopo: `**/openapi*.yaml`, `**/openapi*.yml`, `**/openapi*.json`, `**/*.openapi.yaml`, `**/*.openapi.yml`, `**/swagger*.yaml`, `**/swagger*.yml`, `**/swagger*.json`
+- Verificação: motor (contract)
+
+Contrato de API publicado não quebra consumidores: nada é removido nem passa a ser obrigatório. O motor compara a versão da base com a do PR e aponta caminho ou operação removidos, parâmetro ou propriedade de corpo obrigatórios novos, resposta 2xx removida e propriedade removida ou com tipo alterado na resposta. Contrato novo não dispara; contrato removido dispara.
+
+**Correção:** Mudança compatível: adicione campos opcionais e novas operações. Mudança que quebra: publique uma nova versão (/v2) ao lado da atual, com data de descontinuação da antiga combinada com os consumidores e registrada em ADR.
+
 ## ARCH-HEX-001 — Domínio livre de frameworks (Spring, JPA)
 - Severidade: `CRITICAL` · modo: `enforce` · ADR: `ADR-ARCH-001`
 - Escopo: `**/src/main/java/**/domain/**/*.java`
@@ -23,6 +50,51 @@ Classes em `domain` não podem depender de Spring (`org.springframework`) nem de
 
 **Correção:** Declare uma porta (interface) em `application/port/out` e implemente o adaptador em `infrastructure`. O caso de uso depende só da porta.
 
+## ARCH-TIME-001 — Relógio e fuso implícitos no domínio ou nos casos de uso
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-ARCH-002`
+- Escopo: `**/src/main/**/domain/**/*.java`, `**/src/main/**/domain/**/*.kt`, `**/src/main/**/application/**/*.java`, `**/src/main/**/application/**/*.kt`
+- Verificação: motor (regex)
+
+Regra de negócio que depende de data (corte, D+1, vencimento, horário de Pix, dia útil) não pode ler o relógio e o fuso da máquina. `LocalDate.now()`, `new Date()`, `System.currentTimeMillis()` e `ZoneId.systemDefault()` tornam o resultado dependente do servidor (UTC no contêiner, America/Sao_Paulo na estação), impossível de testar na virada do dia e impossível de reproduzir numa auditoria. O relógio entra como dependência (`Clock`) e o fuso é explícito.
+
+**Correção:** Injete um `java.time.Clock` (ou uma porta `Relogio`) e use `LocalDate.now(clock)`; defina o fuso de negócio explicitamente (`ZoneId.of("America/Sao_Paulo")`) ou trabalhe em UTC e converta na borda. Nos testes, use `Clock.fixed(...)`.
+
+## DATA-MIG-001 — Migração de banco já versionada foi editada, renomeada ou removida
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-DATA-001`
+- Escopo: `**/db/migration/**/V*__*.sql`, `**/db/migration/V*__*.sql`
+- Verificação: motor (path_changed)
+
+Uma migração versionada (Flyway V<versão>__<descrição>.sql) que já existe na base pode ter rodado em homologação e produção. Editá-la faz o checksum divergir (a aplicação não sobe) ou, pior, faz ambientes diferentes terem schemas diferentes. O schema só evolui com uma migração nova. O motor aponta arquivo de migração modificado, renomeado ou removido; arquivo novo é o caminho correto e não dispara.
+
+**Correção:** Desfaça a alteração na migração existente e crie uma nova (V<próxima versão>__...) com a correção. Se a migração ainda não saiu do seu branch, peça waiver com o commit.
+
+## DATA-MIG-002 — Mudança destrutiva de schema sem expand/contract
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-DATA-001`
+- Escopo: `**/db/migration/**/*.sql`, `**/db/changelog/**/*.sql`
+- Verificação: motor (regex)
+
+DROP de tabela, coluna, view ou schema, RENAME, troca de tipo, NOT NULL em coluna existente, TRUNCATE e DELETE sem WHERE numa migração quebram a versão da aplicação que ainda está rodando durante o deploy (rolling update, blue/green) e não têm volta sem restore. A mudança destrutiva segue expand/contract: primeiro adiciona e migra, e só remove numa release posterior, depois que nenhuma versão em produção usa o objeto.
+
+**Correção:** Divida em etapas: (1) expand: crie a coluna/tabela nova e escreva nas duas; (2) migre os dados; (3) contract: remova o antigo em outra release, com ADR ou registro de mudança aprovado por dados. Mantenha backup verificado antes do contract.
+
+## DATA-RES-001 — Infraestrutura em região fora da lista aprovada (residência de dados)
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-DATA-002`
+- Escopo: `**/*.tf`, `**/*.tfvars`
+- Verificação: motor (regex)
+
+Dado de cliente fica em região aprovada (Brasil) salvo decisão registrada. Provisionar recurso em outra região é transferência internacional (LGPD Art. 33) e contratação de nuvem sujeita à Resolução CMN 4.893. O motor aponta `region`/`location` do Terraform fora de sa-east-1 (AWS), southamerica-east1/southamerica-west1 (GCP) e brazilsouth/brazilsoutheast (Azure). Serviços globais que exigem outra região (ex.: certificado do CloudFront em us-east-1) usam waiver com justificativa.
+
+**Correção:** Use a região aprovada. Se o serviço não existir no Brasil ou for global, registre a decisão (ADR e avaliação de privacidade) e peça waiver restrito ao arquivo.
+
+## EVT-SCHEMA-001 — Mudança incompatível em schema de evento (Avro)
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-API-001`
+- Escopo: `**/*.avsc`
+- Verificação: motor (contract)
+
+Schema de evento publicado mantém compatibilidade nos dois sentidos (produtor novo com consumidor antigo e vice-versa), porque produtores e consumidores são implantados em momentos diferentes e eventos antigos ficam retidos no tópico. O motor compara a base com o PR e aponta campo novo sem default, campo removido sem default, tipo alterado sem promoção válida (int→long é aceito) e símbolo de enum removido.
+
+**Correção:** Adicione campos sempre com default; remova só campos que têm default; não troque tipos. Mudança que quebra vira um novo tópico ou um novo schema versionado, com migração dos consumidores registrada em ADR. Mantenha também a checagem do Schema Registry no deploy.
+
 ## FIN-MONEY-001 — Aritmética monetária com tipo binário ou sem arredondamento explícito
 - Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-FIN-001`
 - Escopo: `**/src/main/**/*.java`, `**/src/main/**/*.kt`
@@ -31,6 +103,15 @@ Classes em `domain` não podem depender de Spring (`org.springframework`) nem de
 Valor monetário (valor, saldo, preço, juros, tarifa, taxa, montante) não pode usar double/float: o tipo binário não representa centavos e o erro se acumula em juros, rateio e conciliação. BigDecimal não pode nascer de literal double, e divide/setScale precisam de RoundingMode explícito (sem ele, dízima vira ArithmeticException em produção e a regra de arredondamento fica implícita). O motor cobre a declaração, o literal e a chamada numa mesma linha; tipo inferido fica com a revisão humana.
 
 **Correção:** Use BigDecimal (ou um value object Dinheiro no domínio) criado com BigDecimal.valueOf(...) ou a partir de String, e informe o RoundingMode definido pelo produto (ex.: divide(b, 2, RoundingMode.HALF_EVEN), setScale(2, RoundingMode.HALF_EVEN)).
+
+## GOV-ADR-001 — Decisão estrutural sem ADR no mesmo PR
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-GOV-004`
+- Escopo: `**/pom.xml`, `**/build.gradle`, `**/build.gradle.kts`, `**/settings.gradle`, `**/settings.gradle.kts`, `**/docker-compose*.yml`, `**/docker-compose*.yaml`, `**/compose*.yml`, `**/compose*.yaml`
+- Verificação: motor (requires_companion), motor (requires_companion), motor (requires_companion)
+
+Uma decisão estrutural vem acompanhada do seu registro: o PR que adiciona uma dependência nova, um módulo novo ou um datastore/broker novo traz um ADR (novo ou atualizado) no mesmo PR. O motor só conta o que não existia na base: trocar a versão de uma dependência existente não dispara.
+
+**Correção:** Adicione ou atualize um ADR em `adrs/`, `docs/adr/` ou `docs/architecture/decisions/` explicando o porquê, as alternativas e as consequências da decisão.
 
 ## LGPD-DATA-001 — CPF válido versionado em código, configuração ou massa de teste
 - Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-LGPD-002`
@@ -113,6 +194,15 @@ Regras objetivas herdadas do code-quality-auditor da PoC: não retornar null em 
 
 **Correção:** Use Optional ou exceção de domínio em vez de null; injete dependências pelo construtor; trate exceções específicas e propague ou registre com contexto; tipe o retorno.
 
+## RES-IDEMP-001 — Retry automático em escrita financeira sem chave de idempotência
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-FIN-002`
+- Escopo: `**/src/main/**/*.java`, `**/src/main/**/*.kt`
+- Verificação: LLM consultivo
+
+Retry numa operação que movimenta dinheiro (pagamento, transferência, débito, lançamento) só é seguro se o destino deduplicar pela mesma chave de idempotência. Sem ela, um timeout depois do processamento vira cobrança ou transferência em dobro. A regex marca as linhas com retry (@Retryable, RetryTemplate, Resilience4j, retry() do Reactor) e o Jev julga se a operação é uma escrita financeira sem chave (ADR-GOV-002). Consultivo até o eval justificar bloqueio.
+
+**Correção:** Gere a chave de idempotência antes da primeira tentativa e reenvie a mesma chave em cada retry (header Idempotency-Key ou campo do comando); no destino, deduplique pela chave. Sem isso, não faça retry automático: devolva o erro e reconcilie.
+
 ## SEC-CONFIG-001 — Configuração Spring insegura para produção
 - Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-SEC-002`
 - Escopo: `**/src/main/resources/application*.yml`, `**/src/main/resources/application*.yaml`, `**/src/main/resources/application*.properties`
@@ -166,3 +256,21 @@ Chaves de API, tokens, senhas e chaves privadas não podem ser versionados (Secr
 Caracteres de controle bidirecional (Trojan Source, CVE-2021-42574), de largura zero e de "tag" Unicode fazem o código parecer diferente do que é executado e escondem instruções de revisores humanos e de LLMs. Não têm uso legítimo em código-fonte.
 
 **Correção:** Remova os caracteres. Se forem necessários em um literal (i18n), use a forma escapada e registre um waiver com justificativa.
+
+## SUP-DEP-001 — Dependência SNAPSHOT ou com versão flutuante
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-SUP-001`
+- Escopo: `**/pom.xml`, `**/build.gradle`, `**/build.gradle.kts`, `**/gradle/libs.versions.toml`
+- Verificação: motor (regex)
+
+Dependência SNAPSHOT, faixa de versão ([1.0,2.0), 1.+), LATEST, RELEASE ou latest.release faz o mesmo commit gerar artefatos diferentes em dias diferentes: o build deixa de ser reproduzível, o SBOM deixa de corresponder ao que roda e uma versão comprometida entra sem revisão. A versão própria do projeto (`<version>` do pom) não é verificada.
+
+**Correção:** Fixe a versão exata (1.4.2), de preferência num BOM ou catálogo de versões, e deixe a atualização para um bot de dependências (Renovate/Dependabot) com PR revisado.
+
+## SUP-IMG-001 — Imagem de contêiner sem digest, rodando como root ou baixando código sem verificação
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-SUP-001`
+- Escopo: `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`
+- Verificação: motor (regex), motor (regex), motor (regex)
+
+Imagem base referenciada só por tag (`eclipse-temurin:21-jre`) muda sem aviso quando a tag é republicada: o mesmo Dockerfile gera imagens diferentes e uma imagem comprometida entra sem revisão. Contêiner com `USER root` amplia o impacto de qualquer falha. `ADD` de URL e `curl | sh` executam código baixado sem verificação de integridade. O registry aprovado depende da organização e fica para quando ela for definida (ADR-SUP-001).
+
+**Correção:** Fixe a imagem por digest (`imagem:tag@sha256:...`), rode com usuário sem privilégio (`USER 10001`), baixe artefatos com checksum verificado (`curl -o x && sha256sum -c`) e prefira imagens do registry corporativo.

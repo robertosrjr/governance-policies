@@ -57,6 +57,28 @@ def _git(repo, *args):
         raise GovernanceError(f"git {' '.join(args)} falhou: {exc.stderr.strip()[:300]}") from exc
 
 
+def _statuses(repo, base):
+    """{caminho: added|modified|deleted|renamed} (renomeação indexada pelo caminho novo)."""
+    kinds = {"A": "added", "M": "modified", "D": "deleted", "R": "renamed", "C": "added",
+             "T": "modified"}
+    out = {}
+    for line in _git(repo, "diff", "--name-status", "-M", f"{base}...HEAD").splitlines():
+        parts = line.split("	")
+        if len(parts) >= 2:
+            out[parts[-1]] = kinds.get(parts[0][:1], "modified")
+    return out
+
+
+def _base_content(repo, merge_base, path):
+    try:
+        return subprocess.run(
+            ["git", "-c", "core.quotepath=off", "show", f"{merge_base}:{path}"], cwd=repo,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            check=True).stdout
+    except subprocess.CalledProcessError:
+        return None
+
+
 def _names(repo, base, diff_filter=None):
     args = ["diff", "--name-only", "-M", f"{base}...HEAD"]
     if diff_filter:
@@ -74,26 +96,50 @@ def collect_changes(repo, base):
     added_by_path = parse_unified_diff(
         _git(repo, "diff", "--unified=0", "--no-color", "-M", f"{base}...HEAD"))
     deleted = _names(repo, base, "D")
+    statuses = _statuses(repo, base)
+    merge_base = _git(repo, "merge-base", base, "HEAD").strip()
+    renamed_from = {}
+    for line in _git(repo, "diff", "--name-status", "-M", f"{base}...HEAD").splitlines():
+        parts = line.split("	")
+        if parts[0].startswith("R") and len(parts) == 3:
+            renamed_from[parts[2]] = parts[1]
     changes = []
     for path in sorted(_names(repo, base) | set(added_by_path)):
         if path in deleted:
-            changes.append(ChangedFile(path=path, content="", deleted=True))
+            changes.append(ChangedFile(path=path, content="", deleted=True, status="deleted",
+                                       base_content=_base_content(repo, merge_base, path)))
             continue
+        status = statuses.get(path, "modified")
         try:
             content = (repo / path).read_text(encoding="utf-8")
         except UnicodeDecodeError:
             content = ""  # binário: só regras de caminho se aplicam
         except FileNotFoundError as exc:
             raise GovernanceError(f"Arquivo do diff ausente no checkout: {path}") from exc
+        base_content = (_base_content(repo, merge_base, renamed_from.get(path, path))
+                        if status in ("modified", "renamed") else None)
         changes.append(ChangedFile(path=path, content=content,
-                                   added_lines=added_by_path.get(path, {})))
+                                   added_lines=added_by_path.get(path, {}), status=status,
+                                   base_content=base_content))
     return changes
 
 
-def as_new_files(files):
-    """Trata cada arquivo como novo (todas as linhas adicionadas). Usado no eval."""
-    return [
-        ChangedFile(path=path, content=content,
-                    added_lines={i: line for i, line in enumerate(content.splitlines(), 1)})
-        for path, content in files.items()
-    ]
+def as_new_files(files, base_files=None):
+    """Arquivos do eval: todas as linhas contam como adicionadas.
+
+    Caminhos presentes em `base_files` viram modificados (com o conteúdo da base); um
+    caminho só da base, com valor null em `files`, vira removido.
+    """
+    base_files = base_files or {}
+    changes = []
+    for path, content in files.items():
+        if content is None:
+            changes.append(ChangedFile(path=path, content="", deleted=True, status="deleted",
+                                       base_content=base_files.get(path)))
+            continue
+        changes.append(ChangedFile(
+            path=path, content=content,
+            added_lines={i: line for i, line in enumerate(content.splitlines(), 1)},
+            status="modified" if path in base_files else "added",
+            base_content=base_files.get(path)))
+    return changes

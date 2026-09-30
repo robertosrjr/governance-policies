@@ -29,6 +29,7 @@ class Case:
     tags: tuple
     files: dict
     expect: dict
+    base_files: dict | None = None
 
 
 def load_cases(cases_dir=CASES_DIR):
@@ -38,7 +39,8 @@ def load_cases(cases_dir=CASES_DIR):
         cases.append(Case(id=data["id"], description=data["description"],
                           requires_llm=bool(data.get("requires_llm")),
                           tags=tuple(data.get("tags", ())),
-                          files=data["files"], expect=data["expect"]))
+                          files=data["files"], expect=data["expect"],
+                          base_files=data.get("base_files")))
     return cases
 
 
@@ -73,7 +75,7 @@ def run_eval(policies, cases, provider=None, llm_config=None, repeat=1, jev_prov
     deterministic_failures, errors = [], []
     stability = {}
     for case in selected:
-        files = as_new_files(case.files)
+        files = as_new_files(case.files, case.base_files)
         matches = 0
         for _ in range(repeat if use_llm else 1):
             _, findings, run_errors, _, _ = run_layers(files, policies, provider, llm_config,

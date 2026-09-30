@@ -1,0 +1,27 @@
+id: SUP-DEP-001
+title: Dependência SNAPSHOT ou com versão flutuante
+version: 1.0.0
+owner: plataforma
+adr: ADR-SUP-001
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/gradle/libs.versions.toml"
+description: >-
+  Dependência SNAPSHOT, faixa de versão ([1.0,2.0), 1.+), LATEST, RELEASE ou latest.release
+  faz o mesmo commit gerar artefatos diferentes em dias diferentes: o build deixa de ser
+  reproduzível, o SBOM deixa de corresponder ao que roda e uma versão comprometida entra
+  sem revisão. A versão própria do projeto (`<version>` do pom) não é verificada.
+remediation: >-
+  Fixe a versão exata (1.4.2), de preferência num BOM ou catálogo de versões, e deixe a
+  atualização para um bot de dependências (Renovate/Dependabot) com PR revisado.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '<[\w.\-]+\.version>[^<]*-SNAPSHOT|<version>\s*(?:LATEST|RELEASE|[\[(][^<]*)\s*</version>|["''][\w.\-]+:[\w.\-]+:(?:[^"'']*-SNAPSHOT|[^"'']*\+|latest\.\w+|[\[(][^"'']*)["'']|\bversion\s*=\s*"(?:[^"]*\+|latest\.\w+|[\[(][^"]*)"'
+      message: Dependência SNAPSHOT ou com versão flutuante; fixe a versão exata.

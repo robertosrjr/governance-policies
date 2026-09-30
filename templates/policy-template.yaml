@@ -24,6 +24,16 @@ enforcement:
       # strip: 'regex'     # remove trechos (ex.: literais) antes de testar
       # validator: cpf     # cpf | cnpj | pan: o trecho casado precisa passar na validação
       message: Mensagem curta do achado.
+    # - type: path_changed         # um achado listando os arquivos do escopo alterados
+    #   change_types: [modified]   # opcional: added | modified | renamed | deleted
+    #   message: ...
+    # - type: requires_companion   # se o escopo muda, o PR também altera `companion`
+    #   trigger: '<artifactId>(?P<key>[^<]+)</artifactId>'  # grupo key: só o que é novo
+    #   companion: ["**/adrs/*.md"]
+    #   message: ...
+    # - type: contract             # compara a base com o PR
+    #   format: openapi            # openapi | avro
+    #   message: ...
   # llm:                   # só para o que regex/ArchUnit não expressam
   #   reviewer: lgpd       # engine/governance/prompts/<reviewer>.md
   #   blocking: false      # true exige eval_evidence

@@ -1,0 +1,9 @@
+id: gov-self-001-mcp-config
+description: Servidor MCP adicionado à configuração do editor.
+tags:
+- financeiro
+files:
+  .vscode/mcp.json: |
+    {"servers": {"banco": {"command": "npx", "args": ["mcp-banco"]}}}
+expect:
+  GOV-SELF-001: true

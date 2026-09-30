@@ -1,0 +1,16 @@
+id: ai-gw-001-sdk-direto
+description: Caso de uso importa o SDK da OpenAI e a configuração aponta para a API pública.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/application/usecase/ResumirExtratoUseCase.java: |
+    package com.empresa.conta.application.usecase;
+
+    import com.openai.client.OpenAIClient;
+
+    public class ResumirExtratoUseCase {}
+  app/src/main/resources/application.yml: |
+    ia:
+      url: https://api.openai.com/v1
+expect:
+  AI-GW-001: true

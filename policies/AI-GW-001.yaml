@@ -1,0 +1,40 @@
+id: AI-GW-001
+title: Chamada a LLM fora do gateway corporativo de IA
+version: 1.0.0
+owner: arquitetura
+adr: ADR-AI-001
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*.java", "**/*.kt", "**/*.py", "**/*.ts", "**/*.js",
+            "**/*.yml", "**/*.yaml", "**/*.properties", "**/*.json", "**/.env*"]
+  exclude:
+    - "**/infrastructure/**/llm/**"
+    - "**/infrastructure/**/ai/**"
+    - "**/src/test/**"
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/package-lock.json"
+description: >-
+  Aplicação chama LLM só pelo gateway corporativo de IA, que concentra contrato com o
+  provedor (retenção, região), remoção de dado pessoal, limite de custo, auditoria e
+  troca de modelo. SDK de provedor (OpenAI, Anthropic, Gemini, Bedrock, adaptadores de
+  Spring AI e LangChain4j) e endpoint público de provedor ficam restritos ao adaptador
+  do gateway (`infrastructure/**/llm` ou `infrastructure/**/ai`).
+remediation: >-
+  Use o cliente do gateway corporativo de IA. Se o gateway é compatível com a API de um
+  provedor, o SDK pode ser usado apenas no adaptador em `infrastructure/**/llm`, com a
+  URL base do gateway vinda de configuração.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Código e configuração de aplicações que consomem modelos de linguagem.
+  compliant: LLM calls go through the corporate AI gateway; provider SDKs are confined to the gateway adapter package.
+  non_compliant: application code imports a provider SDK or calls a public LLM provider endpoint outside the gateway adapter.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\bimport\s+(?:static\s+)?(?:com\.openai|com\.anthropic|com\.google\.genai|com\.google\.cloud\.vertexai|software\.amazon\.awssdk\.services\.bedrock\w*|dev\.langchain4j\.model\.(?:openai|anthropic|vertexai|googleai|bedrock)|org\.springframework\.ai\.(?:openai|anthropic|vertexai|bedrock))\b|^\s*(?:from|import)\s+(?:openai|anthropic|google\.genai|google\.generativeai|langchain_openai|langchain_anthropic)\b|(?:from\s+|require\s*\(\s*)["''](?:openai|@anthropic-ai/sdk|@google/genai|@google/generative-ai)["'']'
+      message: SDK de provedor de LLM fora do adaptador do gateway corporativo.
+    - type: regex
+      pattern: '(?i)https?://(?:api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|openrouter\.ai/api|api\.mistral\.ai|api\.cohere\.(?:ai|com))'
+      message: Endpoint público de provedor de LLM; use o gateway corporativo.

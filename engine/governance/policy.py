@@ -85,7 +85,7 @@ def _semantic_errors(data, path, adrs_dir):
     if adrs_dir and not list(adrs_dir.glob(f"{data['adr']}-*.md")):
         errors.append(f"{path.name}: ADR {data['adr']} não encontrado em {adrs_dir}")
     for rule in data.get("enforcement", {}).get("deterministic", ()):
-        for key in ("pattern", "exclude", "strip"):
+        for key in ("pattern", "exclude", "strip", "trigger"):
             if key in rule:
                 try:
                     re.compile(rule[key])
