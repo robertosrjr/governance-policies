@@ -35,8 +35,16 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
      delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
      `llm.blocking: true`, que exige evidência de eval.
 4. Waivers válidos (aprovador ≠ solicitante, até 90 dias) são descontados.
-5. Saídas: comentário no PR, SARIF no Code Scanning, `result.json` atestado (Sigstore) e
-   guardado como artefato. Qualquer erro bloqueia.
+5. Saídas: comentário no PR, SARIF no Code Scanning, `result.json` atestado (Sigstore),
+   guardado como artefato e, com a retenção configurada, gravado num bucket imutável
+   (Object Lock). Qualquer erro bloqueia.
+6. No deploy, o [gate de deploy](.github/workflows/governance-deploy-gate.yml) acha o PR
+   do commit implantado, verifica a atestação (assinada pelo workflow central) e o
+   veredito. Sem PR aprovado, não implanta
+   ([ADR-GOV-005](adrs/ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md)).
+
+Fluxo completo, arquivos lidos e gerados em cada etapa:
+[docs/fluxo-da-esteira.md](docs/fluxo-da-esteira.md).
 
 ## Políticas
 
@@ -80,8 +88,11 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
   sem treino, região definida, Resolução CMN 4.893 e LGPD Art. 33). Até lá, LLM só em
   repositórios piloto sem dado sensível.
 - Modo "sem LLM" por classificação do repositório (hoje a falta de chave bloqueia).
-- Evidência em armazenamento imutável com retenção definida por compliance, e o gate de
-  deploy verificando a atestação.
+- Criar o bucket de evidências ([templates/evidence-store](templates/evidence-store/main.tf))
+  com a retenção definida por compliance e preencher `EVIDENCE_BUCKET` e
+  `EVIDENCE_ROLE_ARN` no workflow central; ligar o gate de deploy
+  ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)) nos pipelines.
+- Integração com a gestão de mudança (ServiceNow/Jira) e painel de conformidade.
 - Migrar para organização (required workflow + ruleset com 1 aprovação e CODEOWNERS).
 - Gateway corporativo de IA (pré-requisito da AI-GW-001, ADR-AI-001), registry de
   imagens aprovado (ADR-SUP-001) e lista de regiões aprovada (ADR-DATA-002).
@@ -93,6 +104,8 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
 2. Remova o workflow de IA local (na PoC: `.github/workflows/ai-governance.yml` e
    `.github/scripts/orchestrator.py`), que lia prompts do próprio PR.
 3. Mantenha o ArchUnit no build: é a verificação de arquitetura sobre o bytecode.
+4. No pipeline de deploy, adicione o job do gate de deploy e faça o deploy depender dele
+   ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)).
 
 ## Configuração da organização (uma vez)
 

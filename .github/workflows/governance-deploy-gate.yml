@@ -1,0 +1,102 @@
+# Gate de deploy (ADR-GOV-005): chamado pelo pipeline de deploy do repositório-alvo antes
+# de implantar. Só libera um commit que chegou por um PR cuja avaliação da governança foi
+# aprovada, assinada (Sigstore) pelo workflow central e é do mesmo repositório e commit.
+#
+# O commit implantado (merge no main) não é o commit avaliado (último commit do PR). O
+# gate liga os dois pelo PR: merge_commit_sha do PR mergeado -> head.sha avaliado. Para
+# que o merge não traga código não avaliado, o ruleset exige branch atualizado antes do
+# merge (templates/org-ruleset.json, strict_required_status_checks_policy).
+name: governance-deploy-gate
+
+on:
+  workflow_call:
+    inputs:
+      governance_ref:
+        description: "Ref deste repositório (tag ou SHA); a mesma do 'uses:' do chamador"
+        required: true
+        type: string
+      commit:
+        description: "Commit que será implantado (padrão: o commit do evento)"
+        required: false
+        type: string
+    secrets:
+      GOVERNANCE_READ_TOKEN:
+        description: "Leitura deste repositório, se ele for privado"
+        required: false
+
+permissions:
+  contents: read
+  actions: read          # baixar o artefato da avaliação do PR
+  pull-requests: read    # achar o PR do commit
+  attestations: read     # verificar a atestação
+
+env:
+  GOVERNANCE_REPOSITORY: robertosrjr/governance-policies
+  PREDICATE_TYPE: https://github.com/robertosrjr/governance-policies/governance-result/v1
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do motor de governança
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.GOVERNANCE_REPOSITORY }}
+          ref: ${{ inputs.governance_ref }}
+          token: ${{ secrets.GOVERNANCE_READ_TOKEN || github.token }}
+          path: governance
+          persist-credentials: false
+
+      - name: Configurar Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências (hash obrigatório)
+        run: pip install --no-deps --require-hashes -r governance/engine/requirements.lock
+
+      - name: Localizar o PR e baixar a evidência
+        id: locate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ inputs.commit || github.sha }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error title=Gate de deploy::$1"; exit 1; }
+          pulls=$(gh api "repos/${REPO}/commits/${COMMIT}/pulls")
+          # O commit é o último commit de um PR (deploy do próprio commit avaliado) ou o
+          # merge de um PR já mergeado. merge_commit_sha de PR aberto é um merge de teste.
+          head=$(jq -r --arg c "$COMMIT" '[.[] | select(.head.sha == $c
+                  or (.merge_commit_sha == $c and .merged_at != null))][0].head.sha // empty' \
+                  <<<"$pulls")
+          pr=$(jq -r --arg h "$head" '[.[] | select(.head.sha == $h)][0].number // empty' <<<"$pulls")
+          [ -n "$head" ] || fail "O commit ${COMMIT} não veio de um PR (push direto?). Sem PR não há avaliação da governança."
+          run_id=$(gh run list --repo "$REPO" --commit "$head" --limit 50 \
+                    --json databaseId,workflowName \
+                    --jq '[.[] | select(.workflowName == "governance")][0].databaseId // empty')
+          [ -n "$run_id" ] || fail "Nenhuma execução do check governance para o commit ${head} do PR #${pr}."
+          gh run download "$run_id" --repo "$REPO" -n "governance-${head}" -D evidence \
+            || fail "Evidência governance-${head} indisponível (artefato expirado após 90 dias?). Recupere do armazenamento de evidências ou reavalie o PR."
+          echo "head=${head}" >> "$GITHUB_OUTPUT"
+          echo "pr=${pr}" >> "$GITHUB_OUTPUT"
+          echo "Commit ${COMMIT} -> PR #${pr}, avaliado em ${head} (execução ${run_id})."
+
+      - name: Verificar a assinatura (Sigstore, workflow central)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # --signer-workflow: só vale se quem assinou foi o workflow central, e não um job
+          # qualquer do repositório-alvo com o mesmo nome.
+          gh attestation verify evidence/result.json --repo "$REPO" \
+            --predicate-type "$PREDICATE_TYPE" \
+            --signer-workflow "${GOVERNANCE_REPOSITORY}/.github/workflows/governance-required.yml"
+
+      - name: Verificar o veredito
+        env:
+          PYTHONPATH: governance/engine
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.locate.outputs.head }}
+        run: python -m governance verify-evidence --result evidence/result.json --repository "$REPO" --commit "$HEAD_SHA"

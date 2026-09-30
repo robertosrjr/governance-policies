@@ -54,6 +54,12 @@ env:
   GOVERNANCE_REPOSITORY: robertosrjr/governance-policies
   GITLEAKS_VERSION: 8.30.1
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  # Retenção imutável da evidência (ADR-GOV-005, templates/evidence-store.tf). Fixo aqui
+  # pelo mesmo motivo do GOVERNANCE_REPOSITORY. Vazio: a evidência fica só no artefato
+  # (90 dias) e o passo avisa. Configurado: falha ao reter bloqueia o PR (fail-closed).
+  EVIDENCE_BUCKET: ""
+  EVIDENCE_ROLE_ARN: ""
+  EVIDENCE_REGION: sa-east-1
 
 jobs:
   governance:
@@ -143,12 +149,51 @@ jobs:
           checkout_path: target
 
       - name: Atestar o resultado (evidência para o gate de deploy)
+        id: attest
         if: always() && hashFiles('out/result.json') != '' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: out/result.json
           predicate-type: https://github.com/robertosrjr/governance-policies/governance-result/v1
           predicate-path: out/result.json
+
+      - name: Reter a evidência (armazenamento imutável)
+        if: always() && hashFiles('out/result.json') != ''
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EVIDENCE_BUCKET}" ]; then
+            echo "::notice title=Evidência::Retenção imutável não configurada: a evidência fica só no artefato, por 90 dias (ADR-GOV-005)."
+            exit 0
+          fi
+          trap 'echo "::error title=Evidência::Falha ao reter a evidência no armazenamento imutável. O PR fica bloqueado até a retenção funcionar; avise o time de plataforma."' ERR
+          # OIDC do GitHub -> papel da AWS que só aceita este workflow central (sem chave estática)
+          token=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                  "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r .value)
+          creds=$(aws sts assume-role-with-web-identity --role-arn "$EVIDENCE_ROLE_ARN" \
+                  --role-session-name "governance-${HEAD_SHA:0:12}" --web-identity-token "$token" \
+                  --duration-seconds 900 --query Credentials --output json)
+          AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds")
+          AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds")
+          AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds")
+          echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+          echo "::add-mask::${AWS_SESSION_TOKEN}"
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+          # Um prefixo por execução: reexecuções não sobrescrevem (e o Object Lock impediria)
+          prefix="s3://${EVIDENCE_BUCKET}/${REPO}/pr-${PR_NUMBER}/${HEAD_SHA}/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for file in out/result.json out/report.md out/results.sarif out/gitleaks.sarif; do
+            if [ -f "$file" ]; then
+              aws s3 cp "$file" "${prefix}/$(basename "$file")" --region "$EVIDENCE_REGION" --only-show-errors
+            fi
+          done
+          if [ -n "${BUNDLE_PATH}" ]; then
+            aws s3 cp "$BUNDLE_PATH" "${prefix}/attestation.jsonl" --region "$EVIDENCE_REGION" --only-show-errors
+          fi
+          echo "Evidência retida em ${prefix}/"
 
       - name: Guardar evidência
         if: always()

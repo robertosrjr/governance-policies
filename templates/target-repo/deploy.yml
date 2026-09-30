@@ -1,0 +1,28 @@
+# Exemplo de pipeline de deploy do repositório-alvo com o gate de deploy (ADR-GOV-005).
+# Copie o job `governance-gate` para o seu workflow de deploy e faça o deploy depender
+# dele (`needs`). Mantenha a ref do 'uses:' e governance_ref iguais às do governance.yml.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  attestations: read
+
+jobs:
+  governance-gate:
+    uses: robertosrjr/governance-policies/.github/workflows/governance-deploy-gate.yml@v1.6.0
+    with:
+      governance_ref: v1.6.0
+
+  deploy:
+    needs: governance-gate
+    runs-on: ubuntu-latest
+    environment: production   # aprovação manual e segredos de produção ficam no environment
+    steps:
+      - run: echo "deploy do commit ${{ github.sha }} liberado pela governança"

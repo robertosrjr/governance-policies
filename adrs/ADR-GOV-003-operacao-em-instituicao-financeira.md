@@ -67,9 +67,10 @@ A promoção é um PR neste repositório, com os números no corpo do PR.
 
 - `result.json` atestado (Sigstore) por commit, com versão do motor, do bundle, digest
   das políticas e modelos usados.
-- **Pendência:** copiar a evidência para armazenamento imutável (ex.: S3 com Object
-  Lock) com o prazo de retenção definido por compliance, e fazer o gate de deploy
-  verificar a atestação.
+- Gate de deploy verificando a atestação e retenção em S3 com Object Lock:
+  [ADR-GOV-005](ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md). **Pendência:**
+  criar o bucket (templates/evidence-store) com o prazo de retenção definido por
+  compliance e preencher `EVIDENCE_BUCKET` e `EVIDENCE_ROLE_ARN` no workflow central.
 
 ### 5. Pré-requisitos de plataforma das políticas
 

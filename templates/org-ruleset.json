@@ -1,5 +1,5 @@
 {
-  "_comment": "POST /orgs/{org}/rulesets. Valide os campos contra a API do seu plano do GitHub (required workflows em rulesets de organização). repository_id = id numérico do repositório central; ref = tag de release do bundle.",
+  "_comment": "POST /orgs/{org}/rulesets. Valide os campos contra a API do seu plano do GitHub (required workflows em rulesets de organização). repository_id = id numérico do repositório central; ref = tag de release do bundle. Remova as chaves _comment antes do POST. required_status_checks com strict: o PR precisa estar atualizado com o main antes do merge, para que o commit de merge não traga código que a governança não avaliou (ADR-GOV-005).",
   "name": "governanca-obrigatoria",
   "target": "branch",
   "enforcement": "active",
@@ -30,6 +30,13 @@
         "dismiss_stale_reviews_on_push": true,
         "require_last_push_approval": true,
         "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [{"context": "governance / governance"}]
       }
     },
     {"type": "non_fast_forward"},

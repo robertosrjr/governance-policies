@@ -1,4 +1,4 @@
-"""CLI: python -m governance {validate,review,export,eval}.
+"""CLI: python -m governance {validate,review,export,eval,verify-evidence}.
 
 Códigos de saída: 0 aprovado/ok · 1 bloqueado/reprovado · 2 configuração inválida.
 """
@@ -13,6 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from .diff import collect_changes
+from .evidence import check_result
 from .evaluation import coverage_problems, format_report, gate, load_cases, run_eval
 from .export import write_exports
 from .github import publish_comment
@@ -237,6 +238,32 @@ def cmd_eval(args):
     return 1 if reasons else 0
 
 
+def cmd_verify_evidence(args):
+    """Gate de deploy: a assinatura já foi verificada pelo `gh attestation verify`."""
+    try:
+        result = json.loads(Path(args.result).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise GovernanceError(f"Evidência ilegível ({args.result}): {exc}") from exc
+    problems = check_result(result, repository=args.repository, commit=args.commit)
+    lines = [f"## Gate de deploy: {'liberado' if not problems else 'bloqueado'}", "",
+             f"- Repositório: `{args.repository}`",
+             f"- Commit avaliado no PR: `{args.commit}`",
+             f"- Veredito da governança: {result.get('status')} ({result.get('summary', '')})",
+             f"- Motor {(result.get('bundle') or {}).get('engine_version')}, "
+             f"bundle {(result.get('bundle') or {}).get('bundle_version')}, "
+             f"ref `{(result.get('bundle') or {}).get('governance_ref')}`"]
+    lines += [f"- **Motivo:** {p}" for p in problems]
+    if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(summary_path, "a", encoding="utf-8") as summary:
+            summary.write("\n".join(lines) + "\n")
+    for problem in problems:
+        logger.error("  %s", problem)
+    _annotate([{"message": "Deploy bloqueado: evidência da governança inválida.", "action": p}
+               for p in problems])
+    logger.info("Gate de deploy: %s", "BLOQUEADO" if problems else "LIBERADO")
+    return 1 if problems else 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="governance", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -265,6 +292,13 @@ def build_parser():
     ev.add_argument("--min-precision", type=float)
     ev.add_argument("--out")
     ev.set_defaults(func=cmd_eval)
+
+    gate = sub.add_parser("verify-evidence",
+                          help="gate de deploy: confere o result.json atestado de um PR")
+    gate.add_argument("--result", required=True, help="result.json já verificado (Sigstore)")
+    gate.add_argument("--repository", required=True, help="owner/repo que vai implantar")
+    gate.add_argument("--commit", required=True, help="último commit do PR avaliado")
+    gate.set_defaults(func=cmd_verify_evidence)
     return parser
 
 

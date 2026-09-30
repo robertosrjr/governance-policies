@@ -6,4 +6,4 @@ Camadas (ver adrs/ADR-GOV-000):
   política declara `llm.blocking: true` (exige resultado de eval).
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"

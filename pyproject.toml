@@ -1,6 +1,6 @@
 [project]
 name = "enterprise-governance"
-version = "1.5.0"
+version = "1.6.0"
 description = "Motor de governança e SecLLMOps: políticas-como-código sobre PRs"
 requires-python = ">=3.12"
 
