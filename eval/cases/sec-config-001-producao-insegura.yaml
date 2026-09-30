@@ -1,0 +1,22 @@
+id: sec-config-001-producao-insegura
+description: application.yml de produção com ddl-auto update, stack trace e Actuator exposto.
+tags:
+- financeiro
+files:
+  app/src/main/resources/application.yml: |
+    debug: true
+    spring:
+      jpa:
+        hibernate:
+          ddl-auto: update
+        show-sql: true
+    server:
+      error:
+        include-stacktrace: always
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: "*"
+expect:
+  SEC-CONFIG-001: true

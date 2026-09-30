@@ -1,0 +1,10 @@
+id: lgpd-data-001-cpf-valido-em-massa
+description: CPF com dígito verificador válido em massa de teste.
+tags:
+- financeiro
+files:
+  app/src/test/resources/massa/clientes.csv: |
+    nome;cpf
+    Cliente Teste;123.456.789-09
+expect:
+  LGPD-DATA-001: true

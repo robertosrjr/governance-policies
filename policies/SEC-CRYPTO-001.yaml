@@ -1,0 +1,41 @@
+id: SEC-CRYPTO-001
+title: Criptografia fraca, TLS inseguro ou aleatoriedade previsível em segredo
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-003
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*.java", "**/*.kt"]
+  exclude: ["**/src/test/**"]
+description: >-
+  Torna verificável a OWASP-A04 no código: hash fraco (MD5, SHA-1), cifra fraca ou sem
+  modo seguro (DES, 3DES, RC4, Blowfish, ECB, "AES" sem modo, que no JCE vira ECB),
+  protocolo TLS antigo (SSL, TLSv1, TLSv1.1), verificação de certificado ou hostname
+  desligada, e Random/Math.random gerando token, OTP, senha, nonce ou salt.
+remediation: >-
+  Hash: SHA-256+ (senha: Argon2/bcrypt/PBKDF2). Cifra: AES/GCM/NoPadding com IV
+  aleatório, chave no KMS/HSM. TLS: 1.2+ sem desligar verificação (use truststore
+  próprio em vez de trust-all). Segredo aleatório: SecureRandom.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Código Java/Kotlin de produção que usa criptografia, TLS ou gera segredos.
+  compliant: uses SHA-256+ or a password KDF, AES-GCM, TLS 1.2+ with certificate and hostname verification, and SecureRandom for secrets.
+  non_compliant: uses MD5/SHA-1, DES/3DES/RC4/ECB or bare AES, SSL/TLSv1/TLSv1.1, trust-all or no-op hostname verification, or java.util.Random/Math.random for tokens, OTPs, passwords, nonces or salts.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: 'MessageDigest\.getInstance\s*\(\s*"(?i:MD2|MD5|SHA-?1|SHA)"|DigestUtils\.(?:md5|sha1|sha)(?:Hex)?\s*\('
+      message: Hash fraco (MD5/SHA-1). Use SHA-256+ ou, para senha, Argon2/bcrypt/PBKDF2.
+    - type: regex
+      pattern: 'Cipher\.getInstance\s*\(\s*"(?i:(?:DES|DESede|3DES|RC2|RC4|ARCFOUR|Blowfish)(?:/[^"]*)?|[^"]*/ECB/[^"]*|AES)"'
+      message: Cifra fraca ou modo ECB ("AES" sem modo usa ECB). Use AES/GCM/NoPadding.
+    - type: regex
+      pattern: 'SSLContext\.getInstance\s*\(\s*"(?:SSL|SSLv2|SSLv3|TLSv1|TLSv1\.1)"'
+      message: Protocolo TLS/SSL obsoleto. Use TLSv1.2 ou TLSv1.3.
+    - type: regex
+      pattern: 'NoopHostnameVerifier|ALLOW_ALL_HOSTNAME_VERIFIER|TrustAllStrategy|TrustSelfSignedStrategy|InsecureTrustManagerFactory|HostnameVerifier\s*\(\s*\(?\s*\w+\s*,\s*\w+\s*\)?\s*->\s*true'
+      message: Verificação de certificado ou hostname desligada.
+    - type: regex
+      pattern: '^(?=.*(?i:token|otp|senha|password|nonce|salt|secret|segredo)).*(?:new\s+(?:java\.util\.)?Random\s*\(|Math\.random\s*\(|ThreadLocalRandom\.current\s*\(|RandomStringUtils\.random)'
+      message: Aleatoriedade previsível gerando segredo. Use SecureRandom.

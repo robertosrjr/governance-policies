@@ -72,6 +72,10 @@
             "pattern": {"type": "string"},
             "exclude": {"type": "string"},
             "strip": {"type": "string"},
+            "validator": {
+              "description": "O trecho casado só vira achado se passar na validação (dígito verificador, Luhn)",
+              "enum": ["cpf", "cnpj", "pan"]
+            },
             "message": {"type": "string"}
           }
         },

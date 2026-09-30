@@ -11,6 +11,8 @@ problemas comuns): [docs/guia.md](docs/guia.md).
 zero ao primeiro PR bloqueado): [docs/manual-configuracao.md](docs/manual-configuracao.md).
 
 Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md).
+Operação em instituição financeira (provedor de IA, rollout, segregação de funções,
+evidência): [ADR-GOV-003](adrs/ADR-GOV-003-operacao-em-instituicao-financeira.md).
 Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 `docs/Governança SecLLMOps Enterprise.docx`.
 
@@ -22,9 +24,10 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 2. O workflow faz checkout do PR (como dado) e do motor (desta revisão), roda o gitleaks
    nos commits do PR e o motor sobre o diff.
 3. O motor escolhe as políticas cujo `scope` casa com os arquivos alterados e aplica:
-   - **T0 determinístico** (regex, path): bloqueia em `enforce` + `CRITICAL`;
-   - **T1 LLM** (só políticas com `enforcement.llm`): recebe o conteúdo sem segredos,
-     delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
+   - **T0 determinístico** (regex, path; regex com `validator` confere dígito verificador
+     de CPF/CNPJ e Luhn de cartão): bloqueia em `enforce` + `CRITICAL`;
+   - **T1 LLM** (só políticas com `enforcement.llm`): recebe o conteúdo sem segredos e
+     sem CPF, CNPJ, cartão e e-mail literais (trocados por um marcador do tipo), delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
      `llm.blocking: true`, que exige evidência de eval.
 4. Waivers válidos (aprovador ≠ solicitante, até 90 dias) são descontados.
 5. Saídas: comentário no PR, SARIF no Code Scanning, `result.json` atestado (Sigstore) e
@@ -40,10 +43,29 @@ Origem: a PoC `virtualthreads` (pipeline Gemini no PR) e o roteiro em
 | SEC-SECRET-001 credencial versionada | enforce | regex + gitleaks |
 | SEC-UNICODE-001 caracteres invisíveis/bidi | enforce | regex |
 | SEC-OBFUSC-001 escape Unicode fora de literal (Java) | enforce | regex |
+| FIN-MONEY-001 dinheiro em double/float, divide/setScale sem RoundingMode | warn | regex |
+| SEC-CRYPTO-001 hash/cifra fraca, TLS antigo, verificação desligada, Random em segredo | warn | regex |
+| SEC-PAN-001 número de cartão versionado (PCI DSS) | warn | regex + Luhn |
+| LGPD-DATA-001 CPF válido versionado (massa de teste, config, docs) | warn | regex + dígito verificador |
+| SEC-CONFIG-001 configuração Spring insegura em produção | warn | regex |
 | LLM-INJ-001 texto dirigido a IA | warn | regex + LLM (sinal) |
 | GOV-SELF-001 mudança em CI/instruções de IA | warn | path |
 | QUAL-CODE-001 regras objetivas de qualidade | warn | LLM |
 | OWASP-A01/A02/A03/A04/A10 | audit | só exportadas para o AWS Security Agent |
+
+As políticas de domínio financeiro (FIN, CRYPTO, PAN, LGPD-DATA, CONFIG) entram em
+`warn` e sobem para `enforce` pelos critérios do ADR-GOV-003: casos no eval, duas
+semanas em `warn` nos repositórios piloto e falso positivo abaixo de 5%.
+
+### Pendências para produção em instituição financeira
+
+- Contratar o provedor de LLM e o Jev como serviço de nuvem avaliado (retenção zero,
+  sem treino, região definida, Resolução CMN 4.893 e LGPD Art. 33). Até lá, LLM só em
+  repositórios piloto sem dado sensível.
+- Modo "sem LLM" por classificação do repositório (hoje a falta de chave bloqueia).
+- Evidência em armazenamento imutável com retenção definida por compliance, e o gate de
+  deploy verificando a atestação.
+- Migrar para organização (required workflow + ruleset com 1 aprovação e CODEOWNERS).
 
 ## Adoção em um repositório-alvo
 

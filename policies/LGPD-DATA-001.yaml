@@ -1,0 +1,30 @@
+id: LGPD-DATA-001
+title: CPF válido versionado em código, configuração ou massa de teste
+version: 1.0.0
+owner: privacidade
+adr: ADR-LGPD-002
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*"]
+description: >-
+  CPF com dígito verificador válido no repositório pode ser de um titular real (massa
+  copiada de produção, print de chamado, planilha). Repositório não é ambiente
+  autorizado para dado pessoal (LGPD Art. 6º III e Art. 46). O motor procura CPF com ou
+  sem máscara e valida os dígitos verificadores; CPF com dígito inválido e sequências
+  repetidas (111.111.111-11) passam.
+remediation: >-
+  Em massa de teste, use CPF com dígito verificador inválido ou um gerador sintético em
+  tempo de teste. Se for dado real, remova e acione privacidade (ele continua no
+  histórico). Teste de validador de CPF que precise de número válido: waiver.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Todos os arquivos versionados.
+  compliant: test data uses CPFs with invalid check digits or synthetic values generated at test time.
+  non_compliant: a CPF with valid check digits appears in code, configuration, fixtures or documentation.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?<![\w.\-/])\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?![\w\-/]|\.\d)'
+      validator: cpf
+      message: CPF com dígito verificador válido no repositório (possível dado de titular).

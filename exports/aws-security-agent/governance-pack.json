@@ -1,6 +1,6 @@
 {
   "packName": "Enterprise-Governance-Pack",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Requisitos organizacionais derivados de policies/. GERADO por `python -m governance export`. Edite policies/*.yaml.",
   "securityRequirements": [
     {
@@ -9,6 +9,20 @@
       "applicability": "Classes e interfaces Java de produção em pacotes de domínio (**/src/main/java/**/domain/**/*.java).",
       "complianceCriteria": "COMPLIANT if the domain class depends only on Java SE and domain types. NON_COMPLIANT if the domain class references org.springframework.*, jakarta.persistence.* or javax.persistence.* (import, static import or fully qualified name).",
       "remediationGuidance": "Remova anotações Spring/JPA do domínio. Mova o mapeamento ORM para `infrastructure/persistence` (ex.: ClienteEntity) e converta com mappers."
+    },
+    {
+      "name": "fin-money-001",
+      "description": "Aritmética monetária com tipo binário ou sem arredondamento explícito. Valor monetário (valor, saldo, preço, juros, tarifa, taxa, montante) não pode usar double/float: o tipo binário não representa centavos e o erro se acumula em juros, rateio e conciliação. BigDecimal não pode nascer de literal double, e divide/setScale precisam de RoundingMode explícito (sem ele, dízima vira ArithmeticException em produção e a regra de arredondamento fica implícita). O motor cobre a declaração, o literal e a chamada numa mesma linha; tipo inferido fica com a revisão humana.",
+      "applicability": "Código Java/Kotlin de produção que calcula ou armazena valores monetários.",
+      "complianceCriteria": "COMPLIANT if monetary values use BigDecimal (or a Money value object) built from String or valueOf, and every divide/setScale states a RoundingMode. NON_COMPLIANT if monetary values are declared as double/float, BigDecimal is built from a double literal, or divide/setScale is called without a RoundingMode.",
+      "remediationGuidance": "Use BigDecimal (ou um value object Dinheiro no domínio) criado com BigDecimal.valueOf(...) ou a partir de String, e informe o RoundingMode definido pelo produto (ex.: divide(b, 2, RoundingMode.HALF_EVEN), setScale(2, RoundingMode.HALF_EVEN))."
+    },
+    {
+      "name": "lgpd-data-001",
+      "description": "CPF válido versionado em código, configuração ou massa de teste. CPF com dígito verificador válido no repositório pode ser de um titular real (massa copiada de produção, print de chamado, planilha). Repositório não é ambiente autorizado para dado pessoal (LGPD Art. 6º III e Art. 46). O motor procura CPF com ou sem máscara e valida os dígitos verificadores; CPF com dígito inválido e sequências repetidas (111.111.111-11) passam.",
+      "applicability": "Todos os arquivos versionados.",
+      "complianceCriteria": "COMPLIANT if test data uses CPFs with invalid check digits or synthetic values generated at test time. NON_COMPLIANT if a CPF with valid check digits appears in code, configuration, fixtures or documentation.",
+      "remediationGuidance": "Em massa de teste, use CPF com dígito verificador inválido ou um gerador sintético em tempo de teste. Se for dado real, remova e acione privacidade (ele continua no histórico). Teste de validador de CPF que precise de número válido: waiver."
     },
     {
       "name": "lgpd-log-001",
@@ -51,6 +65,27 @@
       "applicability": "Applies to all application code, try-catch blocks, and API exception handlers.",
       "complianceCriteria": "COMPLIANT if exceptions are caught, logged securely without sensitive data, and fail securely (fail-closed). NON_COMPLIANT if stack traces or server internal information are returned to the client (CWE-550) or if system fails open (CWE-636).",
       "remediationGuidance": "Implement global exception handlers that return generic error pages/JSON to clients while logging full details internally to CloudWatch."
+    },
+    {
+      "name": "sec-config-001",
+      "description": "Configuração Spring insegura para produção. Torna verificável parte da OWASP-A02 (configuração segura) e da A10 (erro sem detalhe ao cliente) nos arquivos de configuração que vão para produção: Hibernate alterando o schema (ddl-auto create/update), SQL e parâmetros de bind em log (dado pessoal), stack trace na resposta HTTP, Actuator com todos os endpoints expostos ou mostrando valores de ambiente, console do H2 e modo debug. Perfis dev, local e test ficam fora.",
+      "applicability": "Arquivos application*.yml/yaml/properties de produção (fora de perfis dev, local e test).",
+      "complianceCriteria": "COMPLIANT if schema is managed by versioned migrations, SQL binds are not logged, stack traces are never returned, only health/info actuator endpoints are exposed, and debug/H2 console are disabled. NON_COMPLIANT if ddl-auto is create/create-drop/update, SQL or bind parameters are logged, stack traces are returned to clients, all actuator endpoints or environment values are exposed, or debug/H2 console are enabled.",
+      "remediationGuidance": "ddl-auto: validate (ou none) com migração versionada (Flyway/Liquibase); show-sql false e bind fora de TRACE; server.error.include-stacktrace: never; Actuator só com health e info expostos e show-values: never; H2 e debug apenas em perfil local."
+    },
+    {
+      "name": "sec-crypto-001",
+      "description": "Criptografia fraca, TLS inseguro ou aleatoriedade previsível em segredo. Torna verificável a OWASP-A04 no código: hash fraco (MD5, SHA-1), cifra fraca ou sem modo seguro (DES, 3DES, RC4, Blowfish, ECB, \"AES\" sem modo, que no JCE vira ECB), protocolo TLS antigo (SSL, TLSv1, TLSv1.1), verificação de certificado ou hostname desligada, e Random/Math.random gerando token, OTP, senha, nonce ou salt.",
+      "applicability": "Código Java/Kotlin de produção que usa criptografia, TLS ou gera segredos.",
+      "complianceCriteria": "COMPLIANT if uses SHA-256+ or a password KDF, AES-GCM, TLS 1.2+ with certificate and hostname verification, and SecureRandom for secrets. NON_COMPLIANT if uses MD5/SHA-1, DES/3DES/RC4/ECB or bare AES, SSL/TLSv1/TLSv1.1, trust-all or no-op hostname verification, or java.util.Random/Math.random for tokens, OTPs, passwords, nonces or salts.",
+      "remediationGuidance": "Hash: SHA-256+ (senha: Argon2/bcrypt/PBKDF2). Cifra: AES/GCM/NoPadding com IV aleatório, chave no KMS/HSM. TLS: 1.2+ sem desligar verificação (use truststore próprio em vez de trust-all). Segredo aleatório: SecureRandom."
+    },
+    {
+      "name": "sec-pan-001",
+      "description": "Número de cartão (PAN) versionado. Nenhum número de cartão pode estar no repositório: código, configuração, fixture de teste, massa de dados ou documentação (PCI DSS: PAN só no ambiente de dados de cartão). O motor procura sequências de 13 a 19 dígitos com prefixo de bandeira e dígito de Luhn válido; os números de teste publicados pelas bandeiras (ex.: 4111 1111 1111 1111) são aceitos.",
+      "applicability": "Todos os arquivos versionados.",
+      "complianceCriteria": "COMPLIANT if no primary account number appears in the repository other than card-brand published test numbers or vault tokens. NON_COMPLIANT if a Luhn-valid card number with a card-brand prefix appears in code, configuration, fixtures or documentation.",
+      "remediationGuidance": "Remova o número e trate como incidente se for de titular real (ele continua no histórico do git). Em testes, use os números de teste das bandeiras ou um token do cofre de cartões."
     },
     {
       "name": "sec-secret-001",

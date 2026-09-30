@@ -1,0 +1,11 @@
+id: sec-pan-001-cartao-em-fixture
+description: Número de cartão com Luhn válido (sintético, fora da lista de teste) em massa de teste.
+tags:
+- financeiro
+files:
+  app/src/test/resources/massa/cartoes.json: |
+    [
+      {"titular": "Cliente Teste", "numero": "4532 3994 9366 5645", "validade": "12/29"}
+    ]
+expect:
+  SEC-PAN-001: true

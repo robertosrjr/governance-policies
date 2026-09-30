@@ -1,0 +1,40 @@
+id: FIN-MONEY-001
+title: Aritmética monetária com tipo binário ou sem arredondamento explícito
+version: 1.0.0
+owner: arquitetura
+adr: ADR-FIN-001
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/src/main/**/*.java", "**/src/main/**/*.kt"]
+  exclude: ["**/src/test/**"]
+description: >-
+  Valor monetário (valor, saldo, preço, juros, tarifa, taxa, montante) não pode usar
+  double/float: o tipo binário não representa centavos e o erro se acumula em juros,
+  rateio e conciliação. BigDecimal não pode nascer de literal double, e divide/setScale
+  precisam de RoundingMode explícito (sem ele, dízima vira ArithmeticException em
+  produção e a regra de arredondamento fica implícita). O motor cobre a declaração, o
+  literal e a chamada numa mesma linha; tipo inferido fica com a revisão humana.
+remediation: >-
+  Use BigDecimal (ou um value object Dinheiro no domínio) criado com
+  BigDecimal.valueOf(...) ou a partir de String, e informe o RoundingMode definido pelo
+  produto (ex.: divide(b, 2, RoundingMode.HALF_EVEN), setScale(2, RoundingMode.HALF_EVEN)).
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Código Java/Kotlin de produção que calcula ou armazena valores monetários.
+  compliant: monetary values use BigDecimal (or a Money value object) built from String or valueOf, and every divide/setScale states a RoundingMode.
+  non_compliant: monetary values are declared as double/float, BigDecimal is built from a double literal, or divide/setScale is called without a RoundingMode.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '\b(?:double|float|Double|Float)\s+\w*(?i:valor|saldo|pre[cç]o|amount|price|balance|juros|interest|tarifa|montante|money|custo|fee|taxa)\w*\s*[;=,)(]|\b(?:val|var)\s+\w*(?i:valor|saldo|pre[cç]o|amount|price|balance|juros|interest|tarifa|montante|money|custo|fee|taxa)\w*\s*:\s*(?:Double|Float)\b'
+      strip: '"(?:[^"\\]|\\.)*"|//.*$'
+      message: Valor monetário declarado como double/float. Use BigDecimal ou um value object de dinheiro.
+    - type: regex
+      pattern: '\bBigDecimal\s*\(\s*-?\d+(?:\.\d*[dDfF]?|[dDfF])\s*\)'
+      strip: '"(?:[^"\\]|\\.)*"|//.*$'
+      message: BigDecimal criado a partir de literal double (herda o erro binário). Use BigDecimal("0.10") ou BigDecimal.valueOf.
+    - type: regex
+      pattern: '\.divide\s*\(\s*(?:[^(),]|\([^()]*\))+\)|\.setScale\s*\(\s*\d+\s*\)'
+      strip: '"(?:[^"\\]|\\.)*"|//.*$'
+      message: divide/setScale sem RoundingMode (dízima lança ArithmeticException; arredondamento implícito).

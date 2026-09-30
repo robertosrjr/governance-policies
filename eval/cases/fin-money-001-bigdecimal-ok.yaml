@@ -1,0 +1,22 @@
+id: fin-money-001-bigdecimal-ok
+description: BigDecimal de String/valueOf e RoundingMode explícito; double fora de dinheiro.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/domain/Tarifa.java: |
+    package com.empresa.conta.domain;
+
+    import java.math.BigDecimal;
+    import java.math.RoundingMode;
+
+    public class Tarifa {
+        private BigDecimal valorTarifa = new BigDecimal("12.50");
+        private final BigDecimal percentual = BigDecimal.valueOf(15, 3);
+        private double latenciaMs;
+
+        public BigDecimal rateio(BigDecimal total, BigDecimal parcelas) {
+            return total.divide(parcelas, 2, RoundingMode.HALF_EVEN).setScale(2, RoundingMode.HALF_EVEN);
+        }
+    }
+expect:
+  FIN-MONEY-001: false

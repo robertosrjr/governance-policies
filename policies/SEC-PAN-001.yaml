@@ -1,0 +1,30 @@
+id: SEC-PAN-001
+title: Número de cartão (PAN) versionado
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-003
+severity: CRITICAL
+mode: warn
+scope:
+  include: ["**/*"]
+description: >-
+  Nenhum número de cartão pode estar no repositório: código, configuração, fixture de
+  teste, massa de dados ou documentação (PCI DSS: PAN só no ambiente de dados de cartão).
+  O motor procura sequências de 13 a 19 dígitos com prefixo de bandeira e dígito de
+  Luhn válido; os números de teste publicados pelas bandeiras (ex.: 4111 1111 1111 1111)
+  são aceitos.
+remediation: >-
+  Remova o número e trate como incidente se for de titular real (ele continua no
+  histórico do git). Em testes, use os números de teste das bandeiras ou um token do
+  cofre de cartões.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Todos os arquivos versionados.
+  compliant: no primary account number appears in the repository other than card-brand published test numbers or vault tokens.
+  non_compliant: a Luhn-valid card number with a card-brand prefix appears in code, configuration, fixtures or documentation.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '(?<![\w\-])[3-6](?:[ \-]?\d){12,18}(?![\w\-])'
+      validator: pan
+      message: Possível número de cartão (Luhn válido). Use número de teste da bandeira ou token do cofre.

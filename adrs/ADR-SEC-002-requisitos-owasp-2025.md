@@ -20,6 +20,16 @@ nuvem e comportamento em execução, e não são verificáveis olhando só o dif
 - As mesmas políticas vão para o Claude Code (`.claude/rules/governance-policies.md`) como
   orientação no desenvolvimento.
 
+### Adendo — 2026-09-29: parte verificável de A02 e A10
+
+A configuração Spring que vai para produção é texto no diff e pode ser verificada sem
+LLM. [SEC-CONFIG-001](../policies/SEC-CONFIG-001.yaml) cobre `ddl-auto` que altera o
+schema, SQL e bind em log, stack trace na resposta, Actuator exposto e H2/debug ligados.
+Os perfis `dev`, `local` e `test` ficam fora do escopo. Limite: propriedade aninhada em
+YAML só é vista quando a chave final é inequívoca (ex.: `ddl-auto`, `include: "*"`);
+valores vindos de variável de ambiente ou de config server não aparecem no diff. As
+políticas OWASP-A02/A10 continuam em `audit` para o que não é texto do PR.
+
 ## Consequências
 
 - Alterar um requisito é editar o YAML e rodar `python -m governance export`; o CI

@@ -1,0 +1,29 @@
+id: sec-config-001-producao-segura
+description: Produção com validate e health/info; perfil local pode ter update e H2.
+tags:
+- financeiro
+files:
+  app/src/main/resources/application.yml: |
+    spring:
+      jpa:
+        hibernate:
+          ddl-auto: validate
+        show-sql: false
+    server:
+      error:
+        include-stacktrace: never
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health,info
+  app/src/main/resources/application-local.yml: |
+    spring:
+      jpa:
+        hibernate:
+          ddl-auto: update
+      h2:
+        console:
+          enabled: true
+expect:
+  SEC-CONFIG-001: false

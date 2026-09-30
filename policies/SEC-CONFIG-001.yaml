@@ -1,0 +1,48 @@
+id: SEC-CONFIG-001
+title: Configuração Spring insegura para produção
+version: 1.0.0
+owner: appsec
+adr: ADR-SEC-002
+severity: CRITICAL
+mode: warn
+scope:
+  include:
+    - "**/src/main/resources/application*.yml"
+    - "**/src/main/resources/application*.yaml"
+    - "**/src/main/resources/application*.properties"
+  exclude:
+    - "**/src/main/resources/application-dev*"
+    - "**/src/main/resources/application-local*"
+    - "**/src/main/resources/application-test*"
+description: >-
+  Torna verificável parte da OWASP-A02 (configuração segura) e da A10 (erro sem detalhe
+  ao cliente) nos arquivos de configuração que vão para produção: Hibernate alterando o
+  schema (ddl-auto create/update), SQL e parâmetros de bind em log (dado pessoal),
+  stack trace na resposta HTTP, Actuator com todos os endpoints expostos ou mostrando
+  valores de ambiente, console do H2 e modo debug. Perfis dev, local e test ficam fora.
+remediation: >-
+  ddl-auto: validate (ou none) com migração versionada (Flyway/Liquibase); show-sql
+  false e bind fora de TRACE; server.error.include-stacktrace: never; Actuator só com
+  health e info expostos e show-values: never; H2 e debug apenas em perfil local.
+targets: [pr-review, claude-code, aws-security-agent]
+compliance:
+  applicability: Arquivos application*.yml/yaml/properties de produção (fora de perfis dev, local e test).
+  compliant: schema is managed by versioned migrations, SQL binds are not logged, stack traces are never returned, only health/info actuator endpoints are exposed, and debug/H2 console are disabled.
+  non_compliant: ddl-auto is create/create-drop/update, SQL or bind parameters are logged, stack traces are returned to clients, all actuator endpoints or environment values are exposed, or debug/H2 console are enabled.
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: 'ddl-auto\s*[:=]\s*["'']?(?:create|create-drop|update)\b'
+      message: Hibernate alterando o schema em produção. Use validate e migração versionada.
+    - type: regex
+      pattern: 'show-sql\s*[:=]\s*["'']?true\b|org\.hibernate\.(?:type|orm\.jdbc\.bind|SQL)\S*\s*[:=]\s*["'']?(?i:trace|debug)\b'
+      message: SQL ou parâmetros de bind em log (podem conter dado pessoal).
+    - type: regex
+      pattern: 'include-stacktrace\s*[:=]\s*["'']?(?:always|on[-_]param)\b'
+      message: Stack trace devolvido ao cliente (OWASP A10).
+    - type: regex
+      pattern: 'exposure\.include\s*[:=]\s*["'']?\*|^\s*include\s*:\s*["'']?\*["'']?\s*$|show-values\s*[:=]\s*["'']?always\b'
+      message: Actuator com todos os endpoints expostos ou mostrando valores de ambiente.
+    - type: regex
+      pattern: 'h2\.console\.enabled\s*[:=]\s*true\b|^debug\s*[:=]\s*true\b'
+      message: Console do H2 ou modo debug ligado fora de perfil local.

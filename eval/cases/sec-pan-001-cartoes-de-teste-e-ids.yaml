@@ -1,0 +1,14 @@
+id: sec-pan-001-cartoes-de-teste-e-ids
+description: Números de teste das bandeiras, Luhn inválido e timestamp não são cartão.
+tags:
+- financeiro
+files:
+  app/src/test/resources/massa/cartoes.json: |
+    [
+      {"numero": "4111 1111 1111 1111"},
+      {"numero": "5555555555554444"},
+      {"numero": "4532399493665646"},
+      {"criadoEmEpochMs": 1727600000000}
+    ]
+expect:
+  SEC-PAN-001: false

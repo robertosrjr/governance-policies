@@ -7,7 +7,7 @@ version: 1.0.0
 owner: time-dono
 adr: ADR-AREA-001          # crie o ADR em adrs/ com o porquê
 severity: CRITICAL         # CRITICAL | MAJOR | MINOR
-mode: audit                # comece em audit ou warn; enforce exige casos no eval
+mode: audit                # comece em audit ou warn; enforce: casos no eval + critérios do ADR-GOV-003
 scope:
   include: ["**/*.java"]
   exclude: ["**/src/test/**"]
@@ -22,6 +22,7 @@ enforcement:
       pattern: 'regex'
       # exclude: 'regex'   # descarta a linha
       # strip: 'regex'     # remove trechos (ex.: literais) antes de testar
+      # validator: cpf     # cpf | cnpj | pan: o trecho casado precisa passar na validação
       message: Mensagem curta do achado.
   # llm:                   # só para o que regex/ArchUnit não expressam
   #   reviewer: lgpd       # engine/governance/prompts/<reviewer>.md

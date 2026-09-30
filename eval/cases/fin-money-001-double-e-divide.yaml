@@ -1,0 +1,20 @@
+id: fin-money-001-double-e-divide
+description: Valor em double, BigDecimal de literal double e divide sem RoundingMode.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/domain/Tarifa.java: |
+    package com.empresa.conta.domain;
+
+    import java.math.BigDecimal;
+
+    public class Tarifa {
+        private double valorTarifa;
+        private final BigDecimal percentual = new BigDecimal(0.015);
+
+        public BigDecimal rateio(BigDecimal total, BigDecimal parcelas) {
+            return total.divide(parcelas);
+        }
+    }
+expect:
+  FIN-MONEY-001: true

@@ -1,0 +1,24 @@
+id: sec-crypto-001-apis-seguras
+description: SHA-256, AES-GCM, TLSv1.3 e SecureRandom; Random fora de segredo.
+tags:
+- financeiro
+files:
+  app/src/main/java/com/empresa/conta/infrastructure/crypto/Seguranca.java: |
+    package com.empresa.conta.infrastructure.crypto;
+
+    import java.security.MessageDigest;
+    import java.security.SecureRandom;
+    import java.util.Random;
+    import javax.crypto.Cipher;
+    import javax.net.ssl.SSLContext;
+
+    public class Seguranca {
+        private static final SecureRandom RANDOM = new SecureRandom();
+        byte[] hash(byte[] d) throws Exception { return MessageDigest.getInstance("SHA-256").digest(d); }
+        Cipher cifra() throws Exception { return Cipher.getInstance("AES/GCM/NoPadding"); }
+        SSLContext tls() throws Exception { return SSLContext.getInstance("TLSv1.3"); }
+        String otp() { return String.format("%06d", RANDOM.nextInt(1_000_000)); }
+        int jitterMs() { return new Random().nextInt(100); }
+    }
+expect:
+  SEC-CRYPTO-001: false

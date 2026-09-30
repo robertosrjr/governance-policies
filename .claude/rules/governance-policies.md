@@ -23,6 +23,24 @@ Classes em `domain` não podem depender de Spring (`org.springframework`) nem de
 
 **Correção:** Declare uma porta (interface) em `application/port/out` e implemente o adaptador em `infrastructure`. O caso de uso depende só da porta.
 
+## FIN-MONEY-001 — Aritmética monetária com tipo binário ou sem arredondamento explícito
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-FIN-001`
+- Escopo: `**/src/main/**/*.java`, `**/src/main/**/*.kt`
+- Verificação: motor (regex), motor (regex), motor (regex)
+
+Valor monetário (valor, saldo, preço, juros, tarifa, taxa, montante) não pode usar double/float: o tipo binário não representa centavos e o erro se acumula em juros, rateio e conciliação. BigDecimal não pode nascer de literal double, e divide/setScale precisam de RoundingMode explícito (sem ele, dízima vira ArithmeticException em produção e a regra de arredondamento fica implícita). O motor cobre a declaração, o literal e a chamada numa mesma linha; tipo inferido fica com a revisão humana.
+
+**Correção:** Use BigDecimal (ou um value object Dinheiro no domínio) criado com BigDecimal.valueOf(...) ou a partir de String, e informe o RoundingMode definido pelo produto (ex.: divide(b, 2, RoundingMode.HALF_EVEN), setScale(2, RoundingMode.HALF_EVEN)).
+
+## LGPD-DATA-001 — CPF válido versionado em código, configuração ou massa de teste
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-LGPD-002`
+- Escopo: `**/*`
+- Verificação: motor (regex)
+
+CPF com dígito verificador válido no repositório pode ser de um titular real (massa copiada de produção, print de chamado, planilha). Repositório não é ambiente autorizado para dado pessoal (LGPD Art. 6º III e Art. 46). O motor procura CPF com ou sem máscara e valida os dígitos verificadores; CPF com dígito inválido e sequências repetidas (111.111.111-11) passam.
+
+**Correção:** Em massa de teste, use CPF com dígito verificador inválido ou um gerador sintético em tempo de teste. Se for dado real, remova e acione privacidade (ele continua no histórico). Teste de validador de CPF que precise de número válido: waiver.
+
 ## LGPD-LOG-001 — Dado pessoal em logs, traces, métricas ou exceções
 - Severidade: `CRITICAL` · modo: `enforce` · ADR: `ADR-LGPD-001`
 - Escopo: `**/*.java`, `**/*.kt`
@@ -95,6 +113,24 @@ Regras objetivas herdadas do code-quality-auditor da PoC: não retornar null em 
 
 **Correção:** Use Optional ou exceção de domínio em vez de null; injete dependências pelo construtor; trate exceções específicas e propague ou registre com contexto; tipe o retorno.
 
+## SEC-CONFIG-001 — Configuração Spring insegura para produção
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-SEC-002`
+- Escopo: `**/src/main/resources/application*.yml`, `**/src/main/resources/application*.yaml`, `**/src/main/resources/application*.properties`
+- Verificação: motor (regex), motor (regex), motor (regex), motor (regex), motor (regex)
+
+Torna verificável parte da OWASP-A02 (configuração segura) e da A10 (erro sem detalhe ao cliente) nos arquivos de configuração que vão para produção: Hibernate alterando o schema (ddl-auto create/update), SQL e parâmetros de bind em log (dado pessoal), stack trace na resposta HTTP, Actuator com todos os endpoints expostos ou mostrando valores de ambiente, console do H2 e modo debug. Perfis dev, local e test ficam fora.
+
+**Correção:** ddl-auto: validate (ou none) com migração versionada (Flyway/Liquibase); show-sql false e bind fora de TRACE; server.error.include-stacktrace: never; Actuator só com health e info expostos e show-values: never; H2 e debug apenas em perfil local.
+
+## SEC-CRYPTO-001 — Criptografia fraca, TLS inseguro ou aleatoriedade previsível em segredo
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-SEC-003`
+- Escopo: `**/*.java`, `**/*.kt`
+- Verificação: motor (regex), motor (regex), motor (regex), motor (regex), motor (regex)
+
+Torna verificável a OWASP-A04 no código: hash fraco (MD5, SHA-1), cifra fraca ou sem modo seguro (DES, 3DES, RC4, Blowfish, ECB, "AES" sem modo, que no JCE vira ECB), protocolo TLS antigo (SSL, TLSv1, TLSv1.1), verificação de certificado ou hostname desligada, e Random/Math.random gerando token, OTP, senha, nonce ou salt.
+
+**Correção:** Hash: SHA-256+ (senha: Argon2/bcrypt/PBKDF2). Cifra: AES/GCM/NoPadding com IV aleatório, chave no KMS/HSM. TLS: 1.2+ sem desligar verificação (use truststore próprio em vez de trust-all). Segredo aleatório: SecureRandom.
+
 ## SEC-OBFUSC-001 — Escape Unicode fora de literal em código Java
 - Severidade: `CRITICAL` · modo: `enforce` · ADR: `ADR-SEC-001`
 - Escopo: `**/*.java`
@@ -103,6 +139,15 @@ Regras objetivas herdadas do code-quality-auditor da PoC: não retornar null em 
 O compilador Java traduz `\uXXXX` antes da análise léxica, inclusive em comentários. Isso permite esconder imports proibidos (`org.springframework`) ou executar código "comentado" (`// \u000a codigo()`), enganando regras textuais e revisores.
 
 **Correção:** Escreva o caractere diretamente. Escapes Unicode só são aceitos dentro de literais de string ou char.
+
+## SEC-PAN-001 — Número de cartão (PAN) versionado
+- Severidade: `CRITICAL` · modo: `warn` · ADR: `ADR-SEC-003`
+- Escopo: `**/*`
+- Verificação: motor (regex)
+
+Nenhum número de cartão pode estar no repositório: código, configuração, fixture de teste, massa de dados ou documentação (PCI DSS: PAN só no ambiente de dados de cartão). O motor procura sequências de 13 a 19 dígitos com prefixo de bandeira e dígito de Luhn válido; os números de teste publicados pelas bandeiras (ex.: 4111 1111 1111 1111) são aceitos.
+
+**Correção:** Remova o número e trate como incidente se for de titular real (ele continua no histórico do git). Em testes, use os números de teste das bandeiras ou um token do cofre de cartões.
 
 ## SEC-SECRET-001 — Segredo ou credencial no código ou em configuração versionada
 - Severidade: `CRITICAL` · modo: `enforce` · ADR: `ADR-SEC-001`

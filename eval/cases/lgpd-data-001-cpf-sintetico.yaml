@@ -1,0 +1,11 @@
+id: lgpd-data-001-cpf-sintetico
+description: CPF com dígito inválido, sequência repetida e número que não é CPF.
+tags:
+- financeiro
+files:
+  app/src/test/resources/massa/clientes.csv: |
+    nome;cpf;protocolo
+    Cliente A;123.456.789-00;20260929001
+    Cliente B;111.111.111-11;20260929002
+expect:
+  LGPD-DATA-001: false
