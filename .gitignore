@@ -11,3 +11,7 @@ eval-*.json
 .env
 .env.*
 .secrets/
+
+# Worktrees temporárias de agentes do Claude Code (nunca versionar: viram submódulo
+# sem .gitmodules e quebram o actions/checkout do workflow central)
+.claude/worktrees/
