@@ -4,14 +4,25 @@ Políticas-como-código avaliadas em todo Pull Request da organização, com reg
 determinísticas como base, revisão semântica por LLM apenas como camada aditiva, e
 evidência atestada por commit.
 
+**Versão atual: v1.9.0** (motor 1.9.0, bundle 1.5.0, `result.json` 1.3), validada de
+ponta a ponta na PoC `virtualthreads`: PR aprovado, aprovado com alertas e bloqueado;
+merge recusado com check vermelho; push direto recusado; deploy liberado só com
+evidência assinada.
+
 **Guia completo** (regras, funcionamento, como usar, como aplicar, boas práticas e
 problemas comuns): [docs/guia.md](docs/guia.md).
 
 **Manual de configuração** (passo a passo para ligar a governança em um repositório, do
 zero ao primeiro PR bloqueado): [docs/manual-configuracao.md](docs/manual-configuracao.md).
 
-**Fluxo da esteira** (diagramas de sequência: ciclo de vida de uma regra, avaliação do
-PR, deploy e auditoria, e cada arquivo lido ou gerado): [docs/fluxo-da-esteira.md](docs/fluxo-da-esteira.md).
+**Manual do ciclo de vida de uma regra** (cada etapa e cada arquivo, do ADR à política,
+aos casos de eval, ao eval com e sem LLM, à release e à promoção para `enforce`):
+[docs/manual-ciclo-de-vida-de-uma-regra.md](docs/manual-ciclo-de-vida-de-uma-regra.md).
+
+**Fluxo da esteira** (diagramas de sequência Mermaid das cinco jornadas: ciclo de vida de
+uma regra, dos templates e ADRs à release; adoção de um repositório-alvo; avaliação do
+PR; deploy e auditoria; painel de conformidade; e cada arquivo lido ou gerado):
+[docs/fluxo-da-esteira.md](docs/fluxo-da-esteira.md).
 
 Decisão de arquitetura: [ADR-GOV-000](adrs/ADR-GOV-000-modelo-de-governanca.md). Todas as
 decisões estão em [Decisões de arquitetura (ADRs)](#decisões-de-arquitetura-adrs).
@@ -92,7 +103,6 @@ Novo ADR: [templates/adr-template.md](templates/adr-template.md).
    do commit implantado, verifica a atestação (assinada pelo workflow central) e o
    veredito. Sem PR aprovado, não implanta
    ([ADR-GOV-005](adrs/ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md)).
-
 7. Toda segunda-feira, o [painel de conformidade](.github/workflows/compliance-dashboard.yml)
    consolida os vereditos dos repositórios de `dashboard/repos.txt`: achados, bloqueios e
    falso positivo por política (alerta dispensado como "False positive" no Code
@@ -140,7 +150,9 @@ Fluxo completo, arquivos lidos e gerados em cada etapa:
 
 Toda política nova entra em `warn` e sobe para `enforce` pelos critérios do
 ADR-GOV-003: casos no eval, duas semanas em `warn` nos repositórios piloto e falso
-positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/`).
+positivo abaixo de 5% (números no painel de conformidade). A classe `restrito` já roda
+SEC-PAN-001, LGPD-DATA-001 e SEC-CRYPTO-001 em `enforce` (ADR-GOV-009). Cada política
+aponta o ADR que explica o porquê (`adrs/`).
 
 ### Pendências para produção em instituição financeira
 
@@ -153,31 +165,42 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
   com a retenção definida por compliance e preencher `EVIDENCE_BUCKET` e
   `EVIDENCE_ROLE_ARN` no workflow central; ligar o gate de deploy
   ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)) nos pipelines.
-- Integração com a gestão de mudança (ServiceNow/Jira); criar o segredo `DASHBOARD_TOKEN`
-  (leitura de Actions e Code Scanning nos repositórios) para o painel semanal.
+- Quando houver um time: waiver como processo (solicitação e aprovação de AppSec) e
+  integração com a gestão de mudança (ServiceNow/Jira).
 - Migrar para organização (required workflow + ruleset com 1 aprovação e CODEOWNERS).
 - Gateway corporativo de IA (pré-requisito da AI-GW-001, ADR-AI-001), registry de
   imagens aprovado (ADR-SUP-001) e lista de regiões aprovada (ADR-DATA-002).
 
 ## Adoção em um repositório-alvo
 
-1. Copie [templates/target-repo/CODEOWNERS](templates/target-repo/CODEOWNERS) para
+1. **Classifique o repositório** em [classification/repositories.yaml](classification/repositories.yaml)
+   (`interno`, `confidencial` ou `restrito`), por PR neste repositório. Fora da lista, ele
+   roda como `nao-classificado`, sem IA ([ADR-GOV-009](adrs/ADR-GOV-009-classificacao-de-repositorios.md)).
+2. Inclua o repositório em [dashboard/repos.txt](dashboard/repos.txt) para entrar no painel.
+3. Copie [templates/target-repo/CODEOWNERS](templates/target-repo/CODEOWNERS) para
    `.github/CODEOWNERS` do repo-alvo.
-2. Remova o workflow de IA local (na PoC: `.github/workflows/ai-governance.yml` e
-   `.github/scripts/orchestrator.py`), que lia prompts do próprio PR.
-3. Mantenha o ArchUnit no build: é a verificação de arquitetura sobre o bytecode.
-4. No pipeline de deploy, adicione o job do gate de deploy e faça o deploy depender dele
+4. Remova qualquer workflow de IA local que leia prompts do próprio repositório (na PoC:
+   `.github/workflows/ai-governance.yml` e `.github/scripts/orchestrator.py`).
+5. Mantenha o ArchUnit no build: é a verificação de arquitetura sobre o bytecode.
+6. No pipeline de deploy, adicione o job do gate de deploy e faça o deploy depender dele
    ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)).
 
 ## Configuração da organização (uma vez)
 
-1. Publique uma tag deste repositório (ex.: `v1.0.0`) e aplique
-   [templates/org-ruleset.json](templates/org-ruleset.json) com o `repository_id` dele.
-2. Secrets da organização: `OPENROUTER_API_KEY` (de preferência restrito aos repositórios
-   selecionados) e, se este repositório for privado, `GOVERNANCE_READ_TOKEN` (somente
-   leitura neste repositório). Ver [ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md).
-3. Ajuste `GOVERNANCE_REPOSITORY` no workflow se o nome do repositório mudar.
-4. Confirme no primeiro PR que `github.workflow_sha` aponta para a revisão deste
+1. Aplique [templates/org-ruleset.json](templates/org-ruleset.json) com o `repository_id`
+   deste repositório e a tag da versão atual: required workflow, 1 aprovação de
+   CODEOWNER, check `governance / governance` com o PR atualizado antes do merge
+   (`strict`), sem bypass.
+2. Secrets da organização, de preferência restritos aos repositórios selecionados:
+   `OPENROUTER_API_KEY` (revisor generativo, [ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md)),
+   `TYPESAFE_API_KEY` (Jev, [ADR-GOV-002](adrs/ADR-GOV-002-julgamento-tipado-jev.md)) e, se
+   este repositório for privado, `GOVERNANCE_READ_TOKEN` (só leitura aqui).
+3. Neste repositório: o secret `DASHBOARD_TOKEN` (leitura de Actions e de Code scanning
+   alerts nos repositórios do painel) e, com o bucket de evidências criado
+   ([templates/evidence-store](templates/evidence-store/main.tf)), `EVIDENCE_BUCKET` e
+   `EVIDENCE_ROLE_ARN` no [workflow central](.github/workflows/governance-required.yml).
+4. Ajuste `GOVERNANCE_REPOSITORY` nos workflows se o nome deste repositório mudar.
+5. Confirme no primeiro PR que `github.workflow_sha` aponta para a revisão deste
    repositório: se não apontar, o checkout do motor falha e o PR é bloqueado
    (fail-closed), sem aprovar nada indevidamente.
 
@@ -186,14 +209,17 @@ positivo abaixo de 5%. Cada política aponta o ADR que explica o porquê (`adrs/
 Sem organização não há required workflow. O repo-alvo chama o workflow central:
 
 1. Copie [templates/target-repo/governance.yml](templates/target-repo/governance.yml) para
-   `.github/workflows/governance.yml` do repo-alvo, com a mesma tag no `uses:` e em
-   `governance_ref`.
-2. Uma chave da OpenRouter **só deste projeto** (em https://openrouter.ai/keys, com limite
-   mensal) como secret do repo-alvo, com o nome que quiser, repassada no `secrets:` do
-   `governance.yml` como `OPENROUTER_API_KEY`. Se este repositório for privado, libere-o em
-   *Settings → Actions → General → Access* para os repositórios da sua conta.
+   `.github/workflows/governance.yml` e [templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)
+   para o pipeline de deploy, com a **mesma tag** no `uses:` e em `governance_ref` dos dois.
+2. Crie no repo-alvo os secrets **só deste projeto** e repasse-os no `secrets:` do
+   `governance.yml`: uma chave da OpenRouter (https://openrouter.ai/keys, com limite
+   mensal) como `OPENROUTER_API_KEY` e uma da TypeSafe como `TYPESAFE_API_KEY`. Na PoC:
+   `VIRTUALTHREADS_OR_API_KEY` e `VIRTUALTHREADS_JEV_API_KEY`. Se este repositório for
+   privado, libere-o em *Settings → Actions → General → Access*.
 3. Ruleset do repo-alvo no branch principal: exigir PR e o status check
-   `governance / governance`. Rulesets em repositório privado exigem plano Pro.
+   `governance / governance`, com **"Require branches to be up to date"** (sem isso, o
+   commit de merge pode trazer código que o gate não avaliou). Rulesets em repositório
+   privado exigem plano Pro.
 
 Limite conhecido: o PR pode editar ou remover a chamada (ADR-GOV-000, alternativas
 rejeitadas). O CODEOWNERS e o check obrigatório só reduzem esse risco. Migre para o
@@ -201,22 +227,25 @@ ruleset da organização antes de tratar o resultado como controle.
 
 ### O que acontece em um PR, passo a passo
 
-Exemplo com a PoC `robertosrjr/virtualthreads`, que chama este repositório na tag `v1.0.0`.
+Exemplo com a PoC `robertosrjr/virtualthreads`, classificada como `interno`, que chama
+este repositório na tag `v1.9.0`.
 
 ```mermaid
 flowchart LR
     A[PR na PoC] --> B[governance.yml<br/>da PoC]
-    B -- "uses: ...@v1.3.0<br/>secrets: OPENROUTER_API_KEY, TYPESAFE_API_KEY" --> C[governance-required.yml<br/>deste repositório]
+    B -- "uses: ...@v1.9.0<br/>secrets: OPENROUTER_API_KEY, TYPESAFE_API_KEY" --> C[governance-required.yml<br/>deste repositório]
     C --> D[gitleaks + motor]
     D --> E{Veredito}
     E -- APPROVED --> F[check verde:<br/>ruleset libera o merge]
     E -- BLOCKED ou erro --> G[check vermelho:<br/>ruleset bloqueia o merge]
+    F --> H[merge no main] --> I[deploy.yml:<br/>gate de deploy]
+    I -- evidência válida --> J[deploy]
 ```
 
 **1. Alguém abre um PR na PoC** (ou faz push no branch dele, ou reabre o PR).
 
-**2. O workflow da PoC dispara.** O arquivo `.github/workflows/governance.yml` da PoC diz
-só *quando* rodar e *qual versão* usar:
+**2. O workflow da PoC dispara.** O `.github/workflows/governance.yml` da PoC diz só
+*quando* rodar e *qual versão* usar:
 
 ```yaml
 on:
@@ -224,10 +253,10 @@ on:
     types: [opened, synchronize, reopened]   # abrir, novo push, reabrir
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.3.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.9.0
     with:
-      governance_ref: v1.3.0                  # a mesma tag do 'uses:'
-    secrets:                                  # só a chave do projeto, nunca 'inherit'
+      governance_ref: v1.9.0                  # a mesma tag do 'uses:'
+    secrets:                                  # só as chaves do projeto, nunca 'inherit'
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
       TYPESAFE_API_KEY: ${{ secrets.VIRTUALTHREADS_JEV_API_KEY }}
 ```
@@ -238,72 +267,97 @@ em um runner do GitHub:
 | Passo do workflow | O que faz |
 |---|---|
 | Checkout do repositório-alvo | Baixa o código do PR em `target/`. É tratado como **dado**, nunca como instrução. |
-| Checkout do motor | Baixa **este** repositório na tag `v1.3.0` em `governance/`: motor, políticas, prompts e modelo. |
+| Checkout do motor | Baixa **este** repositório na tag fixada em `governance/`: motor, políticas, classificação, prompts e modelo. |
 | Instalar dependências | `pip install --require-hashes`: só instala pacotes com hash conferido. |
 | gitleaks | Procura segredos em **cada commit** do PR, inclusive nos já apagados. |
-| Avaliar políticas | `python -m governance review`: aplica as regras determinísticas (T0) e o LLM (T1) no diff e comenta o relatório no PR. |
-| Publicar SARIF | Envia os achados para o Code Scanning. Aparecem como os checks `enterprise-governance` e `gitleaks`. |
+| Avaliar políticas | `python -m governance review`: aplica a classe do repositório, as regras determinísticas (T0) e a IA (T1, se a classe permitir) e comenta o relatório no PR. |
+| Publicar SARIF | Envia os achados para o Code Scanning (checks `enterprise-governance` e `gitleaks`). |
 | Atestar o resultado | Assina o `result.json` (Sigstore). É a evidência do gate de deploy. |
+| Reter a evidência | Com o bucket configurado, grava a evidência em armazenamento imutável; sem ele, só avisa. |
 | Guardar evidência | Salva `out/` como artefato `governance-<sha>` por 90 dias. |
 | Veredito | Só passa se o motor **e** o gitleaks terminarem com 0. Qualquer erro reprova (fail-closed). |
 
 **4. O resultado vira o check `governance / governance`** (job da PoC / job central). O
-ruleset `protecao-main` da PoC exige esse check e um PR para a `main`:
+ruleset `protecao-main` da PoC exige esse check, o PR atualizado e um PR para a `main`:
 
 - ✅ verde: o botão de merge é liberado;
 - ❌ vermelho: o merge fica bloqueado, e o comentário do motor no PR diz a política, o
   arquivo e a linha.
 
-### O que saiu da PoC e para onde foi
+**5. No merge, o `deploy.yml` da PoC** chama o gate de deploy (próxima seção) e só então
+implanta.
 
-Antes, a PoC tinha o próprio pipeline de IA (`ai-governance.yml` + `.github/scripts/orchestrator.py`).
-O passo que chamava o Gemini veio para o workflow central:
-
-| Antes, na PoC | Agora |
-|---|---|
-| `run: python .github/scripts/orchestrator.py` | `python -m governance review`, com o motor **deste** repositório. O script antigo vinha do próprio PR, então o PR podia alterar o revisor. |
-| `GEMINI_API_KEY`, `GITHUB_TOKEN`, `PR_NUMBER`, `BASE_REF` | As mesmas variáveis, no passo "Avaliar políticas" do workflow central. Desde a v1.2.0 a chave é `OPENROUTER_API_KEY` ([ADR-GOV-001](adrs/ADR-GOV-001-provedor-llm-openrouter.md)). |
-| `GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}` | Removido de propósito. O modelo fica em [engine/bundle.yaml](engine/bundle.yaml), para o repositório revisado não poder escolher um modelo mais fraco. |
-
-Na PoC ficam só os **segredos** `VIRTUALTHREADS_OR_API_KEY` e `VIRTUALTHREADS_JEV_API_KEY` (em *Settings → Secrets and
-variables → Actions*) e o `governance.yml`. A variável `GEMINI_MODEL` pode ser apagada, e o
-`GEMINI_API_KEY` também, depois que a v1.2.1 estiver estável.
+Na PoC ficam só os **secrets** `VIRTUALTHREADS_OR_API_KEY` e `VIRTUALTHREADS_JEV_API_KEY`,
+o `governance.yml` e o `deploy.yml`. O `GEMINI_API_KEY` e a variável `GEMINI_MODEL`, da
+época do pipeline próprio da PoC, podem ser apagados: o modelo fica em
+[engine/bundle.yaml](engine/bundle.yaml), para o repositório revisado não poder escolher
+um modelo mais fraco.
 
 ### Testar o bloqueio
 
 Em um branch novo da PoC, coloque uma dependência de framework no domínio, por exemplo
 `import org.springframework.stereotype.Component;` em uma classe de
 `application/pedidos/src/main/java/.../domain/`, e abra um PR. O esperado é
-`ARCH-HEX-001` (CRITICAL), o check `governance / governance` vermelho e o merge bloqueado.
+`ARCH-HEX-001` (CRITICAL), o check `governance / governance` vermelho e o merge recusado.
 Feche o PR sem merge. Para ver o mesmo resultado antes do push:
 
 ```bash
 PYTHONPATH=engine python -m governance review --repo ../../java/virtualthreads --base origin/main --no-llm
 ```
 
-### Publicar uma nova versão das políticas
-
-1. Commit e push na `main` deste repositório.
-2. Nova tag, sem mover as antigas: `git tag -a v1.1.0 -m "..."` e `git push origin v1.1.0`.
-3. Na PoC, troque a tag nos **dois** lugares do `governance.yml` (`@v1.1.0` no `uses:` e
-   `governance_ref: v1.1.0`) e faça isso por PR: o próprio PR já roda na versão nova.
-
 ## Gate de deploy
 
-O deploy de um commit só prossegue com um `result.json` atestado e aprovado para ele:
+O deploy de um commit só prossegue se ele veio de um PR com avaliação aprovada e
+assinada pelo workflow central ([ADR-GOV-005](adrs/ADR-GOV-005-gate-de-deploy-e-retencao-de-evidencia.md)).
+O repositório-alvo chama o [governance-deploy-gate.yml](.github/workflows/governance-deploy-gate.yml)
+antes do deploy ([templates/target-repo/deploy.yml](templates/target-repo/deploy.yml)), que:
+
+1. acha o PR do commit implantado (o commit de merge não é o commit avaliado) e bloqueia
+   commit sem PR;
+2. baixa o `result.json` da avaliação do PR;
+3. verifica a assinatura com `gh attestation verify --signer-workflow` (sem isso, um job
+   qualquer do repo-alvo poderia atestar um resultado forjado);
+4. confere o conteúdo com `python -m governance verify-evidence`: veredito aprovado, mesmo
+   repositório, mesmo commit.
+
+Para uma auditoria, a mesma verificação à mão, com o SHA do último commit do PR:
 
 ```bash
 gh run download <run-id> -R org/app -n "governance-${SHA}" -D evidence
 gh attestation verify evidence/result.json -R org/app \
   --predicate-type https://github.com/robertosrjr/governance-policies/governance-result/v1 \
   --signer-workflow robertosrjr/governance-policies/.github/workflows/governance-required.yml
-jq -e --arg sha "$SHA" '.status == "APPROVED" and .subject.commit == $sha' evidence/result.json
+PYTHONPATH=engine python -m governance verify-evidence --result evidence/result.json \
+  --repository org/app --commit "$SHA"
 ```
 
-O `--signer-workflow` é essencial: sem ele, um workflow qualquer do repo-alvo poderia
-atestar um `result.json` forjado.
+## Onde ficam as evidências e o painel
 
-Isso fecha o caso do merge feito por cima do check: sem evidência, não há deploy.
+| O quê | Onde | Retenção |
+|---|---|---|
+| Veredito de cada PR (`result.json`, `report.md`, SARIF) | Repo-alvo → Actions → execução `governance` do PR → Artifacts → `governance-<sha>` | 90 dias |
+| Assinatura do veredito | Repo-alvo → Actions → Attestations | Enquanto o repositório existir |
+| Achados na linha do código e falso positivo | Repo-alvo → Security → Code scanning | Enquanto o repositório existir |
+| Comentário do relatório | No próprio PR | Enquanto o repositório existir |
+| Painel de conformidade (`dashboard.html`, `.json`, `.md`) | Este repositório → Actions → `compliance-dashboard` → Artifacts; o resumo aparece na execução | 90 dias |
+| Evidência de longo prazo | Bucket S3 com Object Lock (quando configurado) | Definida por compliance |
+
+## Publicar uma nova versão
+
+Processo do [ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md):
+
+1. Suba a versão do motor (`engine/governance/__init__.py` e `pyproject.toml`) igual à
+   tag; suba `bundle_version` só se mudou modelo, prompt, orçamento ou políticas.
+2. `pytest`, `validate`, `export --check` e `eval` verdes (o CI roda). Mudou o bundle:
+   `eval --llm --repeat 5` aprovado, com os números na mensagem do commit.
+3. Commit e push na `main`, e uma tag **nova**: `git tag v1.10.0 && git push origin v1.10.0`.
+   Tag publicada não se move: defeito se corrige com uma versão nova.
+4. **Smoke test:** na PoC, troque a tag no `governance.yml` e no `deploy.yml` (no `uses:` e
+   em `governance_ref`) por PR. O próprio PR roda na versão nova; depois do merge, o gate
+   de deploy tem de liberar.
+
+> As tags **v1.4.0 a v1.7.0** estão defeituosas (worktrees de agentes versionadas como
+> submódulo quebram o checkout do motor). Use a v1.7.1 ou posterior.
 
 ## Desenvolvimento
 
@@ -313,6 +367,7 @@ python -m pytest
 PYTHONPATH=engine python -m governance validate
 PYTHONPATH=engine python -m governance export --check
 PYTHONPATH=engine python -m governance eval
+PYTHONPATH=engine python -m governance dashboard --repo robertosrjr/virtualthreads   # com GITHUB_TOKEN
 ```
 
 Regras para editar este repositório: [CLAUDE.md](CLAUDE.md).
