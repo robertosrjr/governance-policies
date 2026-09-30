@@ -17,7 +17,7 @@
           {
             "path": ".github/workflows/governance-required.yml",
             "repository_id": 0,
-            "ref": "refs/tags/v1.0.0"
+            "ref": "refs/tags/v1.9.0"
           }
         ]
       }

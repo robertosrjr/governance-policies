@@ -10,7 +10,7 @@ Todos a partir da raiz, com `PYTHONPATH=engine` (o pytest já configura isso no 
 | Comando | Para quê |
 |---|---|
 | `python -m pytest` | Testes do motor |
-| `python -m governance validate` | Schema das políticas e waivers, ADRs referenciados, prompts, cobertura do eval |
+| `python -m governance validate` | Schema das políticas e waivers, ADRs referenciados, prompts, classificação, cobertura do eval, nenhum submódulo |
 | `python -m governance export` | Regenera `exports/` e `.claude/rules/governance-policies.md` (`--check` no CI) |
 | `python -m governance eval` | Eval determinístico: todo caso de `eval/cases` sem `requires_llm` deve bater |
 | `python -m governance eval --llm --repeat 5` | Eval do revisor LLM (exige as chaves do bundle: `OPENROUTER_API_KEY` e, para políticas `engine: jev`, `TYPESAFE_API_KEY`) |
@@ -33,8 +33,11 @@ eval/cases/            Casos do eval: exemplos executáveis das políticas
 dashboard/repos.txt    Repositórios do painel de conformidade
 classification/        Classe de cada repositório-alvo: IA permitida e políticas endurecidas
 exports/               GERADO: pack do AWS Security Agent
-.github/workflows/     governance-required.yml (aplicado aos repos-alvo) e ci.yml
-templates/             Política, ADR, waiver, CODEOWNERS do repo-alvo, ruleset da org
+.github/workflows/     governance-required.yml (PR dos repos-alvo), governance-deploy-gate.yml (deploy),
+                       compliance-dashboard.yml (painel semanal) e ci.yml (este repositório)
+templates/             Política, ADR, waiver; repo-alvo (governance.yml, deploy.yml, CODEOWNERS);
+                       ruleset da org; evidence-store/ (Terraform do bucket de evidências)
+docs/                  Guia, manual de configuração, manual do ciclo de vida de uma regra, fluxo
 .claude/               Agente/skills do AWS Security Agent e regras geradas para o Claude Code
 ```
 
@@ -57,6 +60,11 @@ templates/             Política, ADR, waiver, CODEOWNERS do repo-alvo, ruleset 
    configuração do repositório-alvo; o motor só lê o que está neste repositório.
 8. Casos de eval com caracteres invisíveis usam escapes em string YAML entre aspas
    duplas; não grave esses caracteres crus em nenhum arquivo.
+9. **Release** ([ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md)): versão do motor
+   igual à tag; tag publicada nunca se move (defeito = versão nova); depois da tag, smoke
+   test num PR do repositório piloto trocando a tag no `governance.yml` e no `deploy.yml`.
+   Ao publicar, atualize a tag em `templates/target-repo/*.yml`, `templates/org-ruleset.json`
+   e nos exemplos da documentação.
 
 As políticas que valem para o código dos repositórios-alvo (arquitetura hexagonal, LGPD,
 segredos) estão em `.claude/rules/governance-policies.md`, gerado a partir de `policies/`.
