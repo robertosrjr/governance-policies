@@ -12,6 +12,7 @@ Documentos relacionados:
 | [README](../README.md) | Porta de entrada e índice de todas as decisões (ADRs) |
 | [Manual de configuração](manual-configuracao.md) | Ligar a governança num repositório, do zero ao primeiro PR bloqueado e ao primeiro deploy |
 | [Manual do ciclo de vida de uma regra](manual-ciclo-de-vida-de-uma-regra.md) | Criar ou mudar uma regra, do ADR ao eval e à release |
+| [FinOps na plataforma](finops.md) | Regras de custo de infraestrutura, custo da própria esteira e a fronteira do que o gate verifica |
 | [Fluxo da esteira](fluxo-da-esteira.md) | Diagramas de sequência das cinco jornadas |
 | [ADR-GOV-000](../adrs/ADR-GOV-000-modelo-de-governanca.md) | A decisão de arquitetura por trás de tudo |
 
@@ -231,6 +232,7 @@ avaliado). Skills orientam; só `policies/` decide
 | `guia.md` | Este guia: como tudo funciona. |
 | `manual-configuracao.md` | Passo a passo para ligar a governança num repositório e testar. |
 | `manual-ciclo-de-vida-de-uma-regra.md` | Passo a passo para criar ou mudar uma regra. |
+| `finops.md` | FinOps: regras de custo, como ajustar, como testar e o custo da esteira. |
 | `fluxo-da-esteira.md` | Diagramas de sequência das jornadas. |
 | `artigo-*.md` | Artigos sobre a experiência (versões para público geral e para arquitetos). |
 | `Governança SecLLMOps Enterprise.docx` | O roteiro original que deu origem ao projeto (histórico). |
@@ -361,7 +363,7 @@ Na classe `restrito`, também bloqueiam SEC-PAN-001, LGPD-DATA-001 e SEC-CRYPTO-
 | Segurança e dados | SEC-CRYPTO-001 (criptografia fraca, TLS antigo), SEC-PAN-001 (número de cartão), LGPD-DATA-001 (CPF real), SEC-CONFIG-001 (configuração Spring insegura) |
 | Banco de dados e nuvem | DATA-MIG-001 (migração editada), DATA-MIG-002 (DDL destrutivo), DATA-RES-001 (região fora do Brasil) |
 | Arquitetura e contratos | ARCH-TIME-001 (relógio da máquina no domínio), API-CONTRACT-001 (quebra de OpenAPI), EVT-SCHEMA-001 (quebra de Avro), GOV-ADR-001 (decisão estrutural sem ADR) |
-| FinOps | FINOPS-TAG-001 (recurso Terraform sem tags de custo), FINOPS-K8S-001 (contêiner sem `requests`/`limits`), FINOPS-SHUTDOWN-001 (encerramento imediato do Spring) |
+| FinOps | FINOPS-TAG-001 (recurso Terraform sem tags de custo), FINOPS-K8S-001 (contêiner sem `requests`/`limits`), FINOPS-SHUTDOWN-001 (encerramento imediato do Spring); detalhes em [finops.md](finops.md) |
 | Cadeia de suprimentos | SUP-DEP-001 (SNAPSHOT, versão flutuante), SUP-IMG-001 (imagem sem digest, root, `curl \| sh`) |
 | IA nas aplicações | AI-GW-001 (LLM fora do gateway), AI-MODEL-001 (modelo não fixado), AI-HUMAN-001 (IA decide sozinha sobre cliente, Jev), AI-FAIR-001 (dado sensível em modelo, Jev), AI-INV-001 (uso de IA sem inventário) |
 | Revisão e qualidade | LLM-INJ-001 (texto dirigido a IA), GOV-SELF-001 (mudança em CI ou em configuração de agentes), QUAL-CODE-001 (qualidade, revisor generativo) |
@@ -636,7 +638,8 @@ funcionalidade da plataforma, **major** para mudança que quebra quem usa (forma
 - **Classifique antes de ligar.** Repositório sem classe roda sem IA.
 - **Um repositório-alvo por vez.** Ligue em um, observe alguns PRs e só então expanda.
 - **Olhe o painel toda semana:** bloqueios por erro da esteira (provedor fora do ar),
-  falso positivo por regra, waivers vencendo e regras prontas para `enforce`.
+  falso positivo por regra, waivers vencendo, regras prontas para `enforce` e o custo de IA
+  da esteira ([finops.md](finops.md#6-o-custo-da-própria-esteira)).
 - **Acompanhe `GOV-SELF-001`.** Mudanças em `.github/` do repositório-alvo podem desligar
   a governança no modo conta pessoal.
 - **Tokens vencem.** O `DASHBOARD_TOKEN` e as chaves de IA têm validade; quando vencem,

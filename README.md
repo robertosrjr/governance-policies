@@ -20,6 +20,9 @@ zero ao primeiro PR bloqueado): [docs/manual-configuracao.md](docs/manual-config
 aos casos de eval, ao eval com e sem LLM, à release e à promoção para `enforce`):
 [docs/manual-ciclo-de-vida-de-uma-regra.md](docs/manual-ciclo-de-vida-de-uma-regra.md).
 
+**FinOps** (o que a esteira faz por custo de nuvem, como ajustar as regras, como testar e o
+custo da própria esteira): [docs/finops.md](docs/finops.md).
+
 **Fluxo da esteira** (diagramas de sequência Mermaid das cinco jornadas: ciclo de vida de
 uma regra, dos templates e ADRs à release; adoção de um repositório-alvo; avaliação do
 PR; deploy e auditoria; painel de conformidade; e cada arquivo lido ou gerado):
@@ -166,7 +169,8 @@ aponta o ADR que explica o porquê (`adrs/`).
 
 ### Evolução de FinOps
 
-As regras de FinOps do PR e a fronteira do que o gate verifica estão no
+O guia de FinOps é [docs/finops.md](docs/finops.md). As regras de FinOps do PR e a fronteira
+do que o gate verifica estão no
 [ADR-FINOPS-001](adrs/ADR-FINOPS-001-finops-no-pull-request.md). Falta a estimativa de custo
 da mudança (ferramenta externa, com o limite aplicado pelo motor): o desenho está no ADR e
 depende do dono do orçamento e da aprovação do serviço de preços. O teste de encerramento

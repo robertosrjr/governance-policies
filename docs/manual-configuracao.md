@@ -418,6 +418,12 @@ INFO    Veredito: BLOCKED. Bloqueado: 1 violação(ões) bloqueante(s).
 qualquer arquivo em `.github/`): o veredito é `APPROVED` com achados não bloqueantes
 (FIN-MONEY-001 e ARCH-TIME-001; GOV-SELF-001).
 
+**Regras de FinOps** (arquivos novos na aplicação: um `infra/main.tf` com recurso sem as
+tags `CostCenter` e `Owner`, um `infra/k8s/pedidos.yaml` com Deployment sem `resources`, e
+um `application-prod.yml` com `server.shutdown: immediate`): o veredito é `APPROVED` com 4
+alertas (FINOPS-TAG-001 nos dois recursos, FINOPS-K8S-001 e FINOPS-SHUTDOWN-001). Os
+exemplos e a explicação de cada regra estão em [finops.md](finops.md).
+
 **Revisor de IA sem chave**, na classe da aplicação (sem `--no-llm`, com
 `$env:GITHUB_REPOSITORY = "robertosrjr/virtualthreads"` e sem as chaves no ambiente):
 
@@ -549,7 +555,8 @@ A retenção é de 90 dias. Para guardar por anos, crie o bucket de evidências
 
 O painel ([ADR-GOV-006](../adrs/ADR-GOV-006-painel-de-conformidade.md)) roda toda
 segunda-feira no central e mostra, por política, achados, bloqueios, falsos positivos e
-a prontidão para `enforce`.
+a prontidão para `enforce`, além do custo de IA da própria esteira (total, média por PR e por
+modelo; [finops.md](finops.md#6-o-custo-da-própria-esteira)).
 
 ### 5.1 Criar o token
 

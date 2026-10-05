@@ -432,7 +432,7 @@ PYTHONPATH=engine python -m governance eval       # eval determinístico (etapa 
 | Classificação consistente (classes, repositórios, a classe só endurece) | classe afrouxando regra |
 | Nenhum submódulo versionado | o incidente das tags v1.4.0–v1.7.0 (ADR-GOV-007) |
 
-Saída esperada: `Bundle 1.5.0 válido: 34 políticas`.
+Saída esperada: `Bundle 1.6.0 válido: 37 políticas`.
 
 **Teste num repositório de verdade**, só com a camada determinística:
 
@@ -464,7 +464,7 @@ base) e compara o que disparou com o `expect`.
 **Saída** (trecho real):
 
 ```
-Eval (offline, 64 casos, repetições=1)
+Eval (offline, 70 casos, repetições=1)
 política            TP  FP  FN  TN  recall   prec.
 FIN-MONEY-001        1   0   0   1    1.00    1.00
 SEC-PAN-001          1   0   0   1    1.00    1.00
@@ -489,7 +489,7 @@ saída 1). Regex não tem "quase": ou o caso passa, ou a regra está errada, ou 
 
 ```bash
 OPENROUTER_API_KEY=... TYPESAFE_API_KEY=... \
-  PYTHONPATH=engine python -m governance eval --llm --repeat 5 --out eval-llm-1.5.0.json
+  PYTHONPATH=engine python -m governance eval --llm --repeat 5 --out eval-llm-1.6.0.json
 ```
 
 **Quando é obrigatório:** sempre que mudar algo que define o comportamento do revisor:
@@ -507,9 +507,13 @@ Também antes de pedir `llm.blocking: true` para uma política.
 5. Qualquer erro de execução (provedor fora do ar, entrada grande demais) reprova.
 6. Opcional: `--min-recall 0.9 --min-precision 0.9` viram critério de reprovação para as
    políticas com LLM.
+7. Ao final da tabela, imprime o **consumo de IA da execução** (chamadas, tokens e custo em
+   US$; o Jev informa só tokens). É o número para decidir se vale trocar de modelo
+   ([ADR-FINOPS-002](../adrs/ADR-FINOPS-002-custo-da-esteira.md)).
 
-Resultado do bundle 1.5.0: 79 casos × 5 repetições, recall e precisão 1,00 em todas as
-políticas, nenhum caso instável.
+Resultado do bundle 1.6.0: 85 casos × 5 repetições, recall e precisão 1,00 em todas as
+políticas, nenhum caso instável; consumo de US$ 0,216 na OpenRouter (675 chamadas) e 100
+chamadas do Jev.
 
 **Com o Jev, olhe a folga, não só o acerto.** O log mostra a probabilidade de cada linha
 julgada (`Jev RES-IDEMP-001 TransferenciaClient.java:12 p=0.95`). No bundle 1.5.0, os

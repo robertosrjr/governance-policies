@@ -212,7 +212,7 @@ sequenceDiagram
     Dash->>GH: alertas da ferramenta enterprise-governance em cada PR
     GH-->>Dash: dispensados como "false positive"
     Dash->>Dash: por política: achados, PRs, bloqueios, falso positivo,<br/>dias no modo atual, prontidão para enforce
-    Dash->>Dash: geral: aprovados, bloqueados, bloqueados só por erro,<br/>avaliações por classe, waivers vencendo
+    Dash->>Dash: geral: aprovados, bloqueados, bloqueados só por erro,<br/>avaliações por classe, custo de IA (stats.ai_usage), waivers vencendo
     Dash-->>Arq: artefato compliance-dashboard<br/>(dashboard.html, .json, .md) + resumo na execução
     alt Política pronta para enforce
         Arq->>Central: PR mudando mode: warn → enforce,<br/>citando os números do painel
@@ -242,7 +242,7 @@ sequenceDiagram
 | `templates/target-repo/*`, `templates/org-ruleset.json` | Plataforma | Adoção de um repositório (jornada 2) |
 | `templates/evidence-store/main.tf` | Plataforma | Cria o bucket de evidências (jornada 2) |
 | `governance.yml` (alvo) / ruleset da org | Plataforma | Dispara a avaliação em todo PR |
-| `out/result.json` | Motor, a cada PR | Veredito e classe; atestado; lido pelo gate de deploy, pela auditoria e pelo painel |
+| `out/result.json` | Motor, a cada PR | Veredito, classe e consumo de IA (`stats.ai_usage`); atestado; lido pelo gate de deploy, pela auditoria e pelo painel |
 | `out/results.sarif`, `out/gitleaks.sarif` | Motor, gitleaks | Anotações na linha (Code Scanning) |
 | `out/report.md` | Motor | Comentário no PR e resumo da execução |
 | Atestação (Sigstore) | `actions/attest` | Gate de deploy e auditoria: prova de origem |

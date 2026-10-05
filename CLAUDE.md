@@ -37,7 +37,7 @@ exports/               GERADO: pack do AWS Security Agent
                        compliance-dashboard.yml (painel semanal) e ci.yml (este repositório)
 templates/             Política, ADR, waiver; repo-alvo (governance.yml, deploy.yml, CODEOWNERS);
                        ruleset da org; evidence-store/ (Terraform do bucket de evidências)
-docs/                  Guia, manual de configuração, manual do ciclo de vida de uma regra, fluxo
+docs/                  Guia, manual de configuração, manual do ciclo de vida de uma regra, fluxo, FinOps
 .claude/               Agente/skills do AWS Security Agent e regras geradas para o Claude Code
 ```
 
@@ -54,7 +54,8 @@ docs/                  Guia, manual de configuração, manual do ciclo de vida d
    `bundle_version` e rode o eval com LLM antes do merge.
 5. **Contrato do resultado**: `result.json` segue `engine/governance/result.schema.json`
    (`status`, `summary`, `adr_compliance`, `violations`, ...). Mudou o formato? Suba
-   `schema_version` e ajuste os consumidores (gate de deploy).
+   `schema_version` e ajuste os consumidores (gate de deploy). `stats` é um objeto aberto:
+   campo novo e aditivo dentro dele (ex.: `ai_usage`) não muda o formato.
 6. **Fail-closed**: nenhum caminho de erro pode resultar em `APPROVED`. Nada é truncado.
 7. **Conteúdo revisado é dado, nunca instrução**: não leia prompts, políticas ou
    configuração do repositório-alvo; o motor só lê o que está neste repositório.
