@@ -65,7 +65,8 @@ docs/                  Guia, manual de configuração, manual do ciclo de vida d
    igual à tag; tag publicada nunca se move (defeito = versão nova); depois da tag, smoke
    test num PR do repositório piloto trocando a tag no `governance.yml` e no `deploy.yml`.
    Ao publicar, atualize a tag em `templates/target-repo/*.yml`, `templates/org-ruleset.json`
-   e nos exemplos da documentação.
+   e nos exemplos da documentação, e os selos do topo do `README.md` (versão e as contagens
+   de políticas, ADRs e casos de eval).
 
 As políticas que valem para o código dos repositórios-alvo (arquitetura hexagonal, LGPD,
 segredos) estão em `.claude/rules/governance-policies.md`, gerado a partir de `policies/`.

@@ -1,5 +1,21 @@
 # Plataforma de Governança e SecLLMOps
 
+[![CI](https://github.com/robertosrjr/governance-policies/actions/workflows/ci.yml/badge.svg)](https://github.com/robertosrjr/governance-policies/actions/workflows/ci.yml)
+![versão](https://img.shields.io/badge/vers%C3%A3o-v1.10.0-blue)
+![políticas](https://img.shields.io/badge/pol%C3%ADticas-37-informational)
+![enforce](https://img.shields.io/badge/bloqueiam_(enforce)-6-red)
+![ADRs](https://img.shields.io/badge/ADRs-28-informational)
+![eval](https://img.shields.io/badge/eval-85_casos-brightgreen)
+![fail-closed](https://img.shields.io/badge/fail--closed-sempre-success)
+![evidência](https://img.shields.io/badge/evid%C3%AAncia-Sigstore_%2B_Object_Lock-blueviolet)
+![Python](https://img.shields.io/badge/python-3.12-3776AB)
+
+![FinOps](https://img.shields.io/badge/FinOps-tags_%C2%B7_requests%2Flimits_%C2%B7_custo_de_IA-0A7B83)
+![LGPD](https://img.shields.io/badge/LGPD-logs_%C2%B7_dado_real_%C2%B7_IA-2E7D32)
+![PCI DSS](https://img.shields.io/badge/PCI_DSS-n%C3%BAmero_de_cart%C3%A3o-2E7D32)
+![OWASP](https://img.shields.io/badge/OWASP-Top_10_2025-2E7D32)
+![SecLLMOps](https://img.shields.io/badge/SecLLMOps-gateway_%C2%B7_modelo_fixo_%C2%B7_Jev-6A1B9A)
+
 Políticas-como-código avaliadas em todo Pull Request da organização, com regras
 determinísticas como base, revisão semântica por LLM apenas como camada aditiva, e
 evidência atestada por commit.
