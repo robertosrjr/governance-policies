@@ -17,6 +17,7 @@ import yaml
 
 from .diff import as_new_files
 from .review import run_layers
+from .usage import summarize
 
 CASES_DIR = Path(__file__).resolve().parents[2] / "eval" / "cases"
 
@@ -30,6 +31,7 @@ class Case:
     files: dict
     expect: dict
     base_files: dict | None = None
+    context_files: dict | None = None
 
 
 def load_cases(cases_dir=CASES_DIR):
@@ -40,7 +42,8 @@ def load_cases(cases_dir=CASES_DIR):
                           requires_llm=bool(data.get("requires_llm")),
                           tags=tuple(data.get("tags", ())),
                           files=data["files"], expect=data["expect"],
-                          base_files=data.get("base_files")))
+                          base_files=data.get("base_files"),
+                          context_files=data.get("context_files")))
     return cases
 
 
@@ -75,7 +78,7 @@ def run_eval(policies, cases, provider=None, llm_config=None, repeat=1, jev_prov
     deterministic_failures, errors = [], []
     stability = {}
     for case in selected:
-        files = as_new_files(case.files, case.base_files)
+        files = as_new_files(case.files, case.base_files, case.context_files)
         matches = 0
         for _ in range(repeat if use_llm else 1):
             _, findings, run_errors, _, _ = run_layers(files, policies, provider, llm_config,
@@ -104,6 +107,7 @@ def run_eval(policies, cases, provider=None, llm_config=None, repeat=1, jev_prov
         "stability": stability,
         "deterministic_failures": sorted(set(deterministic_failures)),
         "errors": errors,
+        "ai_usage": summarize(provider, jev_provider),
     }
 
 
@@ -130,6 +134,12 @@ def format_report(report):
         fmt = lambda v: "   -  " if v is None else f"{v:6.2f}"  # noqa: E731
         lines.append(f"{pid:<18} {m['tp']:>3} {m['fp']:>3} {m['fn']:>3} {m['tn']:>3} "
                      f"{fmt(m['recall']):>7} {fmt(m['precision']):>7}")
+    usage = report.get("ai_usage") or {}
+    if usage.get("calls"):
+        cost = usage["cost_usd"]
+        lines.append(f"Consumo de IA: {usage['calls']} chamadas, {usage['input_tokens']} tokens de "
+                     f"entrada, {usage['output_tokens']} de saída"
+                     + (f", US$ {cost:.4f} (o Jev não informa preço)" if cost is not None else ""))
     unstable = {k: v for k, v in report["stability"].items() if v < 1}
     if unstable:
         lines.append("Casos instáveis (fração de execuções corretas):")

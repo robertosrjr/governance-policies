@@ -76,6 +76,7 @@ Nem toda boa prática vira regra. Antes de escrever qualquer arquivo, responda:
 | `path_changed` | O problema é mexer num arquivo | migração versionada editada (DATA-MIG-001) |
 | `requires_companion` | Se um arquivo muda, outro precisa mudar junto | dependência nova sem ADR (GOV-ADR-001) |
 | `contract` | O problema é a diferença entre a base e o PR | campo removido de um contrato OpenAPI (API-CONTRACT-001) |
+| `structured` | A regra depende do bloco inteiro, não da linha | tags de custo de um recurso Terraform, `requests`/`limits` de um contêiner (FINOPS-TAG-001, FINOPS-K8S-001) |
 | `external` | Outra ferramenta verifica melhor (no build) | ArchUnit sobre o bytecode (ARCH-HEX-001) |
 | `llm` com `engine: jev` | A decisão depende de contexto, mas a pergunta é de sim/não sobre uma linha | "este retry grava dinheiro sem chave de idempotência?" (RES-IDEMP-001) |
 | `llm` generativo | A regra é semântica e aberta, e o revisor precisa apontar onde | regras de qualidade (QUAL-CODE-001) |
@@ -214,6 +215,25 @@ nova, mas não para troca de versão de uma existente.
 aponta cada mudança incompatível (campo removido, obrigatório novo, tipo alterado). O
 comparador está em `engine/governance/contracts.py`.
 
+**`structured`**: lê a estrutura do arquivo, não a linha. Cada verificação tem um nome
+(`check`) e recebe os `params` da própria política, então quem responde pela regra (por
+exemplo, FinOps) ajusta o que é exigido sem tocar no motor. Hoje há duas, em
+`engine/governance/structured.py`:
+
+| `check` | O que verifica | `params` |
+|---|---|---|
+| `terraform_tags` | Recurso Terraform sem as tags obrigatórias, somando as tags do recurso e as `default_tags` do provider do mesmo diretório, com `locals` e `merge` resolvidos | `required_tags`, `resource_types`, `attribute` (padrão `tags`) |
+| `kubernetes_resources` | Contêiner de workload sem `resources.requests` e/ou `resources.limits` | `requests` e `limits`, listas de `cpu`, `memory`, `ephemeral-storage` |
+
+Duas garantias comuns, para o falso positivo não ensinar o time a ignorar a regra: **só se
+afirma o que dá para afirmar** (valor vindo de variável, módulo ou `for_each` não é
+afirmado) e **só entra o que o PR alterou** (um recurso ou contêiner só é apontado se
+alguma linha dele foi adicionada). Os outros arquivos `.tf` do diretório que o PR tocou
+entram como contexto (`status: context`): não são achado, não selecionam política e não
+contam como arquivo alterado. Os parâmetros são validados pelo `validate`. Exemplo
+completo: [FINOPS-TAG-001](../policies/FINOPS-TAG-001.yaml) e o
+[ADR-FINOPS-001](../adrs/ADR-FINOPS-001-finops-no-pull-request.md).
+
 **`external`**: documenta uma verificação feita fora do motor (ArchUnit no build). O
 motor não executa.
 
@@ -311,6 +331,7 @@ o mesmo código escrito do jeito certo, mais um `double latenciaMs` (um `double`
 | `requires_llm` | `true` quando só a IA consegue acertar o caso (ex.: `toString()` implícito de objeto com CPF). Esses casos só rodam no eval com LLM |
 | `files` | Caminho → conteúdo. **Todas as linhas contam como adicionadas.** O caminho precisa cair no `scope` da política |
 | `base_files` | Opcional: conteúdo na base do PR. Um caminho que está nos dois vira "modificado". Obrigatório para `contract`, `path_changed` com `modified` e `requires_companion` com `key` |
+| `context_files` | Opcional: arquivos que o PR **não** alterou, só para a regra enxergar o resto do módulo (ex.: o `providers.tf` com `default_tags`, para `terraform_tags`). Não são achado nem selecionam política |
 | `expect` | Política → `true` (tem de disparar) ou `false` (não pode disparar). Um caso pode esperar várias políticas |
 
 **Como escrever bons casos:**
@@ -403,6 +424,7 @@ PYTHONPATH=engine python -m governance eval       # eval determinístico (etapa 
 | Nome do arquivo = `id`; `id` único | duas fontes para a mesma regra |
 | O ADR citado existe em `adrs/` | regra sem porquê |
 | Todas as regex compilam (`pattern`, `strip`, `exclude`, `trigger`, `candidates`) | erro de regex só em produção |
+| Os `params` de uma regra `structured` são válidos (lista de tags vazia, quantidade desconhecida) | regra que nunca dispara, ou que quebra em produção |
 | `llm.blocking: true` tem `eval_evidence` | IA bloqueando sem medição |
 | Waivers válidos (aprovador ≠ solicitante, até 90 dias, política existente) | exceção sem controle |
 | Provedores do `bundle.yaml` conhecidos; prompt existe para cada `reviewer`; seção `jev` presente se alguma política usa o Jev | revisor quebrado |

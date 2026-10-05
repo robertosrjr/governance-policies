@@ -7,7 +7,7 @@ arquivo inteiro (contexto) mas só pode apontar linhas adicionadas.
 
 import re
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .model import ChangedFile, GovernanceError
 
@@ -121,17 +121,49 @@ def collect_changes(repo, base):
         changes.append(ChangedFile(path=path, content=content,
                                    added_lines=added_by_path.get(path, {}), status=status,
                                    base_content=base_content))
-    return changes
+    return changes + _terraform_context(repo, changes)
 
 
-def as_new_files(files, base_files=None):
+MAX_CONTEXT_FILES = 200
+MAX_CONTEXT_BYTES = 1_000_000
+
+
+def _terraform_context(repo, changes):
+    """Os outros .tf dos diretórios que o PR tocou: o módulo inteiro, como dado.
+
+    O `default_tags` do provider costuma estar em outro arquivo do mesmo diretório; sem
+    ele, toda regra de tag apontaria recurso que, na verdade, herda a tag.
+    """
+    known = {c.path for c in changes}
+    directories = sorted({PurePosixPath(c.path).parent.as_posix() for c in changes
+                          if c.path.endswith(".tf") and not c.deleted})
+    context = []
+    for directory in directories:
+        folder = repo if directory == "." else repo / directory
+        for sibling in sorted(folder.glob("*.tf")):
+            path = sibling.relative_to(repo).as_posix()
+            if path in known or len(context) >= MAX_CONTEXT_FILES:
+                continue
+            try:
+                if sibling.stat().st_size > MAX_CONTEXT_BYTES:
+                    continue
+                content = sibling.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            context.append(ChangedFile(path=path, content=content, status="context"))
+    return context
+
+
+def as_new_files(files, base_files=None, context_files=None):
     """Arquivos do eval: todas as linhas contam como adicionadas.
 
     Caminhos presentes em `base_files` viram modificados (com o conteúdo da base); um
-    caminho só da base, com valor null em `files`, vira removido.
+    caminho só da base, com valor null em `files`, vira removido. `context_files` são
+    arquivos que o PR não alterou (status `context`).
     """
     base_files = base_files or {}
-    changes = []
+    changes = [ChangedFile(path=path, content=content, status="context")
+               for path, content in (context_files or {}).items()]
     for path, content in files.items():
         if content is None:
             changes.append(ChangedFile(path=path, content="", deleted=True, status="deleted",

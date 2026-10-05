@@ -15,6 +15,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from .model import GovernanceError, Policy
+from .structured import param_problems
 
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "policies" / "schema" / "policy.schema.json"
 
@@ -85,6 +86,8 @@ def _semantic_errors(data, path, adrs_dir):
     if adrs_dir and not list(adrs_dir.glob(f"{data['adr']}-*.md")):
         errors.append(f"{path.name}: ADR {data['adr']} não encontrado em {adrs_dir}")
     for rule in data.get("enforcement", {}).get("deterministic", ()):
+        if rule.get("type") == "structured":
+            errors += [f"{path.name}: {problem}" for problem in param_problems(rule)]
         for key in ("pattern", "exclude", "strip", "trigger"):
             if key in rule:
                 try:
@@ -137,4 +140,5 @@ def policies_digest(policies_dir):
 def select_policies(policies, files, target):
     """Políticas do alvo `target` com ao menos um arquivo alterado (ou removido) no escopo."""
     return [p for p in policies
-            if target in p.targets and any(in_scope(p, f.path) for f in files)]
+            if target in p.targets
+            and any(in_scope(p, f.path) for f in files if f.status != "context")]

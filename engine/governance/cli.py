@@ -175,7 +175,7 @@ def _review(args, pr):
     bundle = load_bundle()
     repo = Path(args.repo).resolve()
     files = collect_changes(repo, args.base)
-    logger.info("Arquivos alterados: %d", len(files))
+    logger.info("Arquivos alterados: %d", sum(1 for f in files if f.status != "context"))
     repository = os.environ.get("GITHUB_REPOSITORY", repo.name)
     classification = load_catalog(policies).for_repository(repository)
     policies, raised = apply_classification(policies, classification)

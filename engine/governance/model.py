@@ -10,8 +10,11 @@ MODES = ("enforce", "warn", "audit")
 class ChangedFile:
     """Arquivo alterado no PR: conteúdo final e linhas adicionadas (nº da linha -> texto).
 
-    `status`: added | modified | deleted | renamed. `base_content`: conteúdo na base do
-    PR (arquivos modificados ou renomeados), usado por regras que comparam versões.
+    `status`: added | modified | deleted | renamed | context. `context` é um arquivo que o
+    PR NÃO alterou, lido só para as regras estruturais enxergarem o módulo inteiro (ex.:
+    o `default_tags` do provider, no mesmo diretório): não seleciona política nem é achado.
+    `base_content`: conteúdo na base do PR (arquivos modificados ou renomeados), usado por
+    regras que comparam versões.
     """
 
     path: str

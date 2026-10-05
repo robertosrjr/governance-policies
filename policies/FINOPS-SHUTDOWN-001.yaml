@@ -1,0 +1,35 @@
+id: FINOPS-SHUTDOWN-001
+title: Spring configurado para encerrar de imediato, sem desligamento gracioso
+version: 1.0.0
+owner: finops
+adr: ADR-FINOPS-001
+severity: MAJOR
+mode: warn
+scope:
+  include:
+    - "**/src/main/resources/application*.yml"
+    - "**/src/main/resources/application*.yaml"
+    - "**/src/main/resources/application*.properties"
+  exclude:
+    - "**/src/main/resources/application-dev*"
+    - "**/src/main/resources/application-local*"
+    - "**/src/main/resources/application-test*"
+description: >-
+  Carga barata (instância Spot, escala para zero, rolling update frequente) só funciona se
+  o serviço termina o que está processando ao receber o SIGTERM. `server.shutdown:
+  immediate` derruba as requisições em andamento: numa interrupção do Spot ou num deploy,
+  vira pedido perdido ou duplicado. O motor aponta a configuração explícita de encerramento
+  imediato. O que ele não vê: a ausência da configuração (depende do padrão da versão do
+  Spring Boot) e o comportamento real, que é um teste de execução, não de diff (ADR-FINOPS-001).
+remediation: >-
+  Use `server.shutdown: graceful` e um `spring.lifecycle.timeout-per-shutdown-phase`
+  menor que o `terminationGracePeriodSeconds` do pod (30s por padrão). Prove com um teste
+  de encerramento no ambiente de staging: envie SIGTERM durante uma requisição longa e
+  confira que ela termina e que a operação é idempotente.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: regex
+      pattern: '^\s*(?:server\.)?shutdown\s*[:=]\s*["'']?immediate\b'
+      strip: '#.*$'
+      message: Encerramento imediato (server.shutdown=immediate); use graceful.

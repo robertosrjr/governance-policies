@@ -1,0 +1,40 @@
+id: finops-k8s-001-sem-requests-e-limits
+description: Deployment e CronJob com contêiner sem resources.
+tags:
+- finops
+files:
+  k8s/pedidos.yaml: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: pedidos
+    spec:
+      replicas: 3
+      selector:
+        matchLabels: {app: pedidos}
+      template:
+        metadata:
+          labels: {app: pedidos}
+        spec:
+          containers:
+            - name: api
+              image: registry.interno/pedidos:1.4.2
+              ports:
+                - containerPort: 8080
+    ---
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: conciliacao
+    spec:
+      schedule: "0 3 * * *"
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+                - name: job
+                  image: registry.interno/conciliacao:2.0.1
+expect:
+  FINOPS-K8S-001: true

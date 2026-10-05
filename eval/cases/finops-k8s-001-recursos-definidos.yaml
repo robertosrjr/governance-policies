@@ -1,0 +1,52 @@
+id: finops-k8s-001-recursos-definidos
+description: Contêiner com requests e limits, init container ignorado, Service e template Helm fora da regra.
+tags:
+- finops
+files:
+  k8s/pedidos.yaml: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: pedidos
+    spec:
+      replicas: 3
+      selector:
+        matchLabels: {app: pedidos}
+      template:
+        metadata:
+          labels: {app: pedidos}
+        spec:
+          initContainers:
+            - name: migra
+              image: registry.interno/pedidos-migra:1.4.2
+          containers:
+            - name: api
+              image: registry.interno/pedidos:1.4.2
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
+                limits:
+                  memory: 512Mi
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: pedidos
+    spec:
+      ports:
+        - port: 80
+  charts/pedidos/templates/deployment.yaml: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: {{ .Release.Name }}
+    spec:
+      replicas: {{ .Values.replicas }}
+      template:
+        spec:
+          containers:
+            - name: api
+              image: {{ .Values.image }}
+expect:
+  FINOPS-K8S-001: false

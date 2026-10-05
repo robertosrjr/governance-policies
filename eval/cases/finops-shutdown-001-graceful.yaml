@@ -1,0 +1,15 @@
+id: finops-shutdown-001-graceful
+description: Encerramento gracioso; o immediate só aparece comentado.
+tags:
+- finops
+files:
+  app/src/main/resources/application.yml: |
+    server:
+      port: 8080
+      # shutdown: immediate
+      shutdown: graceful
+    spring:
+      lifecycle:
+        timeout-per-shutdown-phase: 25s
+expect:
+  FINOPS-SHUTDOWN-001: false

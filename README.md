@@ -4,10 +4,11 @@ Políticas-como-código avaliadas em todo Pull Request da organização, com reg
 determinísticas como base, revisão semântica por LLM apenas como camada aditiva, e
 evidência atestada por commit.
 
-**Versão atual: v1.9.0** (motor 1.9.0, bundle 1.5.0, `result.json` 1.3), validada de
-ponta a ponta na PoC `virtualthreads`: PR aprovado, aprovado com alertas e bloqueado;
-merge recusado com check vermelho; push direto recusado; deploy liberado só com
-evidência assinada.
+**Versão atual: v1.10.0** (motor 1.10.0, bundle 1.6.0, `result.json` 1.3). A v1.9.0 foi
+validada de ponta a ponta na PoC `virtualthreads` (PR aprovado, aprovado com alertas e
+bloqueado; merge recusado com check vermelho; push direto recusado; deploy liberado só
+com evidência assinada); a v1.10.0 aguarda o smoke test do
+[ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md).
 
 **Guia completo** (regras, funcionamento, como usar, como aplicar, boas práticas e
 problemas comuns): [docs/guia.md](docs/guia.md).
@@ -49,6 +50,7 @@ informação, plataforma corporativa).
 | [ADR-GOV-007](adrs/ADR-GOV-007-release-e-versionamento.md) | Release e versionamento: tag não se move, smoke test no destino, sem submódulo | Aceito |
 | [ADR-GOV-008](adrs/ADR-GOV-008-skills-como-orientacao.md) | Skills orientam, políticas decidem; triagem das skills; políticas como fitness functions | Aceito |
 | [ADR-GOV-009](adrs/ADR-GOV-009-classificacao-de-repositorios.md) | Classificação de repositórios: a classe decide se o código vai para a IA e quais regras endurecem | Aceito |
+| [ADR-FINOPS-002](adrs/ADR-FINOPS-002-custo-da-esteira.md) | O custo da própria esteira é medido: consumo de IA por PR na evidência e no painel | Aceito |
 
 **Regras para o código dos repositórios-alvo**
 
@@ -70,6 +72,7 @@ informação, plataforma corporativa).
 | [ADR-AI-001](adrs/ADR-AI-001-ia-nas-aplicacoes.md) | IA pelo gateway corporativo e com modelo fixado | AI-GW-001, AI-MODEL-001, GOV-SELF-001 | Proposto |
 | [ADR-AI-002](adrs/ADR-AI-002-principios-eticos-como-guardrails.md) | Princípios éticos de IA como guardrails | AI-HUMAN-001, AI-FAIR-001, AI-INV-001 | Aceito |
 | [ADR-QUAL-001](adrs/ADR-QUAL-001-regras-de-qualidade.md) | Regras objetivas de qualidade de código | QUAL-CODE-001 | Aceito |
+| [ADR-FINOPS-001](adrs/ADR-FINOPS-001-finops-no-pull-request.md) | FinOps no PR: o que o gate verifica (tags de custo, requests/limits, desligamento gracioso) e o que fica de fora | FINOPS-TAG-001, FINOPS-K8S-001, FINOPS-SHUTDOWN-001 | Aceito |
 
 Novo ADR: [templates/adr-template.md](templates/adr-template.md).
 
@@ -90,7 +93,9 @@ Novo ADR: [templates/adr-template.md](templates/adr-template.md).
      CPF/CNPJ e Luhn de cartão); `path_changed` (arquivo adicionado, modificado,
      renomeado ou removido); `requires_companion` (se X muda, Y também precisa mudar, ex.:
      dependência nova exige ADR); `contract` (compara base e PR de um contrato OpenAPI ou
-     Avro e aponta cada quebra de compatibilidade);
+     Avro e aponta cada quebra de compatibilidade); `structured` (lê a estrutura do arquivo:
+     as tags de custo de um recurso Terraform, os `requests`/`limits` de um contêiner
+     Kubernetes; só afirma o que dá para afirmar e só olha o que o PR alterou);
    - **T1 LLM** (só políticas com `enforcement.llm`): recebe o conteúdo sem segredos e
      sem CPF, CNPJ, cartão e e-mail literais (trocados por um marcador do tipo),
      delimitado por uma tag com nonce; só acrescenta achados; só bloqueia com
@@ -108,6 +113,8 @@ Novo ADR: [templates/adr-template.md](templates/adr-template.md).
    falso positivo por política (alerta dispensado como "False positive" no Code
    Scanning), prontidão de cada política para `enforce`, bloqueios por erro da esteira e
    waivers vencendo ([ADR-GOV-006](adrs/ADR-GOV-006-painel-de-conformidade.md)).
+   O painel também mostra o custo de IA da própria esteira (total, média por PR e por
+   modelo; [ADR-FINOPS-002](adrs/ADR-FINOPS-002-custo-da-esteira.md)).
    Localmente: `python -m governance dashboard --repo owner/repo` (com `GITHUB_TOKEN`).
 
 Fluxo completo, arquivos lidos e gerados em cada etapa:
@@ -142,6 +149,9 @@ Fluxo completo, arquivos lidos e gerados em cada etapa:
 | AI-HUMAN-001 decisão sobre cliente tomada só pela IA (LGPD Art. 20) | warn | regex de candidatos + Jev |
 | AI-FAIR-001 dado pessoal sensível em modelo, score ou regra de decisão | warn | regex de candidatos + Jev |
 | AI-INV-001 uso novo de IA sem entrada no inventário de IA | warn | requires_companion |
+| FINOPS-TAG-001 recurso Terraform sem as tags de custo (CostCenter, Owner), somando `default_tags` | warn | structured |
+| FINOPS-K8S-001 contêiner Kubernetes sem requests e limits | warn | structured |
+| FINOPS-SHUTDOWN-001 `server.shutdown: immediate` em produção | warn | regex |
 | GOV-ADR-001 dependência, módulo ou datastore novo sem ADR no PR | warn | requires_companion |
 | LLM-INJ-001 texto dirigido a IA | warn | regex + LLM (sinal) |
 | GOV-SELF-001 mudança em CI, instruções de IA ou configuração de agentes (MCP) | warn | path |
@@ -153,6 +163,14 @@ ADR-GOV-003: casos no eval, duas semanas em `warn` nos repositórios piloto e fa
 positivo abaixo de 5% (números no painel de conformidade). A classe `restrito` já roda
 SEC-PAN-001, LGPD-DATA-001 e SEC-CRYPTO-001 em `enforce` (ADR-GOV-009). Cada política
 aponta o ADR que explica o porquê (`adrs/`).
+
+### Evolução de FinOps
+
+As regras de FinOps do PR e a fronteira do que o gate verifica estão no
+[ADR-FINOPS-001](adrs/ADR-FINOPS-001-finops-no-pull-request.md). Falta a estimativa de custo
+da mudança (ferramenta externa, com o limite aplicado pelo motor): o desenho está no ADR e
+depende do dono do orçamento e da aprovação do serviço de preços. O teste de encerramento
+(SIGTERM) e o canary com rollback por custo são do pipeline de deploy, não do gate.
 
 ### Pendências para produção em instituição financeira
 
@@ -228,12 +246,12 @@ ruleset da organização antes de tratar o resultado como controle.
 ### O que acontece em um PR, passo a passo
 
 Exemplo com a PoC `robertosrjr/virtualthreads`, classificada como `interno`, que chama
-este repositório na tag `v1.9.0`.
+este repositório na tag `v1.10.0`.
 
 ```mermaid
 flowchart LR
     A[PR na PoC] --> B[governance.yml<br/>da PoC]
-    B -- "uses: ...@v1.9.0<br/>secrets: OPENROUTER_API_KEY, TYPESAFE_API_KEY" --> C[governance-required.yml<br/>deste repositório]
+    B -- "uses: ...@v1.10.0<br/>secrets: OPENROUTER_API_KEY, TYPESAFE_API_KEY" --> C[governance-required.yml<br/>deste repositório]
     C --> D[gitleaks + motor]
     D --> E{Veredito}
     E -- APPROVED --> F[check verde:<br/>ruleset libera o merge]
@@ -253,9 +271,9 @@ on:
     types: [opened, synchronize, reopened]   # abrir, novo push, reabrir
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.9.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.10.0
     with:
-      governance_ref: v1.9.0                  # a mesma tag do 'uses:'
+      governance_ref: v1.10.0                  # a mesma tag do 'uses:'
     secrets:                                  # só as chaves do projeto, nunca 'inherit'
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
       TYPESAFE_API_KEY: ${{ secrets.VIRTUALTHREADS_JEV_API_KEY }}

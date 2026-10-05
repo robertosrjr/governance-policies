@@ -1,0 +1,11 @@
+id: finops-shutdown-001-encerramento-imediato
+description: 'server.shutdown: immediate na configuração de produção.'
+tags:
+- finops
+files:
+  app/src/main/resources/application.yml: |
+    server:
+      port: 8080
+      shutdown: immediate
+expect:
+  FINOPS-SHUTDOWN-001: true

@@ -1,0 +1,58 @@
+id: FINOPS-TAG-001
+title: Recurso de infraestrutura sem as tags de alocação de custo
+version: 1.0.0
+owner: finops
+adr: ADR-FINOPS-001
+severity: MAJOR
+mode: warn
+scope:
+  include: ["**/*.tf"]
+  exclude: ["**/.terraform/**", "**/examples/**", "**/test/**", "**/tests/**"]
+description: >-
+  Todo recurso que gera custo traz as tags de alocação (CostCenter e Owner): sem elas, a
+  fatura não se atribui a um centro de custo nem a um dono, e o FinOps não consegue
+  cobrar, orçar ou desligar o que ninguém reclama. O motor lê o Terraform do PR e soma as
+  tags do recurso com as `default_tags` do provider do mesmo diretório, resolvendo
+  `locals` e `merge`. Só aponta o que dá para afirmar: tag vinda de variável, de módulo
+  ou de `for_each` não é afirmada, e módulo filho (diretório sem provider) herda as tags
+  do módulo raiz. Só entra o recurso que o PR criou ou alterou. A trava definitiva é a
+  política de tags da conta de nuvem (ADR-FINOPS-001); esta regra avisa antes.
+remediation: >-
+  Defina as tags no provider, uma vez, e todo recurso as herda:
+  `provider "aws" { default_tags { tags = { CostCenter = "...", Owner = "..." } } }`. Ou
+  declare `tags = { CostCenter = "...", Owner = "..." }` no recurso (ou em `locals` e
+  `merge`). O valor de CostCenter vem do cadastro de centros de custo da empresa.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: structured
+      check: terraform_tags
+      params:
+        required_tags: [CostCenter, Owner]
+        resource_types:
+          - aws_instance
+          - aws_launch_template
+          - aws_ebs_volume
+          - aws_efs_file_system
+          - aws_s3_bucket
+          - aws_db_instance
+          - aws_rds_cluster
+          - aws_dynamodb_table
+          - aws_elasticache_cluster
+          - aws_elasticache_replication_group
+          - aws_opensearch_domain
+          - aws_msk_cluster
+          - aws_kinesis_stream
+          - aws_sqs_queue
+          - aws_sns_topic
+          - aws_lambda_function
+          - aws_eks_cluster
+          - aws_eks_node_group
+          - aws_ecs_cluster
+          - aws_ecs_service
+          - aws_lb
+          - aws_nat_gateway
+          - aws_cloudwatch_log_group
+          - aws_kms_key
+          - aws_secretsmanager_secret
+      message: Recurso sem as tags de alocação de custo obrigatórias

@@ -1,0 +1,41 @@
+id: FINOPS-K8S-001
+title: Contêiner Kubernetes sem requests e limits de recursos
+version: 1.0.0
+owner: finops
+adr: ADR-FINOPS-001
+severity: MAJOR
+mode: warn
+scope:
+  include: ["**/*.yaml", "**/*.yml"]
+  exclude:
+    - ".github/**"
+    - "**/src/test/**"
+    - "**/node_modules/**"
+    - "**/application*.yml"
+    - "**/application*.yaml"
+    - "**/docker-compose*"
+    - "**/compose*.y*ml"
+description: >-
+  Contêiner de Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob ou Pod sem
+  `resources.requests` não é dimensionado pelo escalonador: o cluster não sabe quanto
+  reservar e o time não sabe quanto paga, e sem `resources.limits.memory` um vazamento de
+  memória derruba o nó dos vizinhos. As quantidades exigidas são os parâmetros da regra.
+  CPU em `limits` não é exigido: o limite de CPU causa estrangulamento (throttling) mesmo
+  com o nó ocioso, e o `requests.cpu` já garante a reserva. O motor lê o manifesto YAML
+  (arquivos de outro tipo, sem `kind` de workload, são ignorados) e só aponta o contêiner
+  que o PR criou ou alterou. Template Helm (`{{ }}`) não é YAML até ser renderizado e não é
+  lido: renderize com `helm template` e versione o resultado, ou valide no cluster.
+remediation: >-
+  Acrescente ao contêiner `resources: { requests: { cpu: 250m, memory: 256Mi }, limits: {
+  memory: 512Mi } }` com valores medidos (use o histórico do serviço, não um palpite). Se
+  o serviço usa VPA ou um perfil padrão (LimitRange) do namespace, documente no ADR do
+  serviço e peça waiver.
+targets: [pr-review, claude-code]
+enforcement:
+  deterministic:
+    - type: structured
+      check: kubernetes_resources
+      params:
+        requests: [cpu, memory]
+        limits: [memory]
+      message: Contêiner sem requests/limits de recursos

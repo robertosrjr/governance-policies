@@ -34,6 +34,12 @@ enforcement:
     # - type: contract             # compara a base com o PR
     #   format: openapi            # openapi | avro
     #   message: ...
+    # - type: structured           # lê a estrutura do arquivo; os params são da política
+    #   check: terraform_tags      # terraform_tags | kubernetes_resources
+    #   params:
+    #     required_tags: [CostCenter, Owner]
+    #     resource_types: [aws_instance, aws_s3_bucket]
+    #   message: ...
   # llm:                   # só para o que regex/ArchUnit não expressam
   #   reviewer: lgpd       # engine/governance/prompts/<reviewer>.md
   #   blocking: false      # true exige eval_evidence

@@ -12,6 +12,8 @@ Tipos de regra (`enforcement.deterministic[].type`):
   dependência nova, e não troca de versão).
 - contract: compara a versão da base com a do PR (`format`: openapi ou avro) e aponta
   cada mudança incompatível (contracts.py).
+- structured: lê a estrutura do arquivo (blocos do Terraform, contêineres do Kubernetes);
+  cada `check` e seus `params` estão em structured.py.
 - external: aplicada fora do motor (ex.: ArchUnit no build do repo-alvo). Só documenta.
 """
 
@@ -20,6 +22,7 @@ import re
 from .contracts import ContractError, breaking_changes
 from .model import Finding
 from .policy import glob_match, in_scope
+from .structured import run_structured
 from .validators import VALIDATORS
 
 MAX_LISTED_PATHS = 5
@@ -97,8 +100,9 @@ def _contract_findings(policy, rule, changed_file):
 
 def run_deterministic(policies, files):
     findings, seen = [], set()
+    changed = [f for f in files if f.status != "context"]
     for policy in policies:
-        scoped = [f for f in files if in_scope(policy, f.path)]
+        scoped = [f for f in changed if in_scope(policy, f.path)]
         for rule in policy.deterministic:
             if rule["type"] == "regex":
                 produced = [x for f in scoped for x in _regex_findings(policy, rule, f)]
@@ -107,7 +111,9 @@ def run_deterministic(policies, files):
                 paths = [f.path for f in scoped if not kinds or f.status in kinds]
                 produced = [_path_finding(policy, rule, paths)] if paths else []
             elif rule["type"] == "requires_companion" and scoped:
-                produced = _companion_finding(policy, rule, scoped, files)
+                produced = _companion_finding(policy, rule, scoped, changed)
+            elif rule["type"] == "structured":
+                produced = run_structured(policy, rule, scoped, files)
             elif rule["type"] == "contract":
                 produced = [x for f in scoped for x in _contract_findings(policy, rule, f)]
             else:

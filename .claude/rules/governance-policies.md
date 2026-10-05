@@ -131,6 +131,33 @@ Valor monetário (valor, saldo, preço, juros, tarifa, taxa, montante) não pode
 
 **Correção:** Use BigDecimal (ou um value object Dinheiro no domínio) criado com BigDecimal.valueOf(...) ou a partir de String, e informe o RoundingMode definido pelo produto (ex.: divide(b, 2, RoundingMode.HALF_EVEN), setScale(2, RoundingMode.HALF_EVEN)).
 
+## FINOPS-K8S-001 — Contêiner Kubernetes sem requests e limits de recursos
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-FINOPS-001`
+- Escopo: `**/*.yaml`, `**/*.yml`
+- Verificação: motor (structured)
+
+Contêiner de Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob ou Pod sem `resources.requests` não é dimensionado pelo escalonador: o cluster não sabe quanto reservar e o time não sabe quanto paga, e sem `resources.limits.memory` um vazamento de memória derruba o nó dos vizinhos. As quantidades exigidas são os parâmetros da regra. CPU em `limits` não é exigido: o limite de CPU causa estrangulamento (throttling) mesmo com o nó ocioso, e o `requests.cpu` já garante a reserva. O motor lê o manifesto YAML (arquivos de outro tipo, sem `kind` de workload, são ignorados) e só aponta o contêiner que o PR criou ou alterou. Template Helm (`{{ }}`) não é YAML até ser renderizado e não é lido: renderize com `helm template` e versione o resultado, ou valide no cluster.
+
+**Correção:** Acrescente ao contêiner `resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { memory: 512Mi } }` com valores medidos (use o histórico do serviço, não um palpite). Se o serviço usa VPA ou um perfil padrão (LimitRange) do namespace, documente no ADR do serviço e peça waiver.
+
+## FINOPS-SHUTDOWN-001 — Spring configurado para encerrar de imediato, sem desligamento gracioso
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-FINOPS-001`
+- Escopo: `**/src/main/resources/application*.yml`, `**/src/main/resources/application*.yaml`, `**/src/main/resources/application*.properties`
+- Verificação: motor (regex)
+
+Carga barata (instância Spot, escala para zero, rolling update frequente) só funciona se o serviço termina o que está processando ao receber o SIGTERM. `server.shutdown: immediate` derruba as requisições em andamento: numa interrupção do Spot ou num deploy, vira pedido perdido ou duplicado. O motor aponta a configuração explícita de encerramento imediato. O que ele não vê: a ausência da configuração (depende do padrão da versão do Spring Boot) e o comportamento real, que é um teste de execução, não de diff (ADR-FINOPS-001).
+
+**Correção:** Use `server.shutdown: graceful` e um `spring.lifecycle.timeout-per-shutdown-phase` menor que o `terminationGracePeriodSeconds` do pod (30s por padrão). Prove com um teste de encerramento no ambiente de staging: envie SIGTERM durante uma requisição longa e confira que ela termina e que a operação é idempotente.
+
+## FINOPS-TAG-001 — Recurso de infraestrutura sem as tags de alocação de custo
+- Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-FINOPS-001`
+- Escopo: `**/*.tf`
+- Verificação: motor (structured)
+
+Todo recurso que gera custo traz as tags de alocação (CostCenter e Owner): sem elas, a fatura não se atribui a um centro de custo nem a um dono, e o FinOps não consegue cobrar, orçar ou desligar o que ninguém reclama. O motor lê o Terraform do PR e soma as tags do recurso com as `default_tags` do provider do mesmo diretório, resolvendo `locals` e `merge`. Só aponta o que dá para afirmar: tag vinda de variável, de módulo ou de `for_each` não é afirmada, e módulo filho (diretório sem provider) herda as tags do módulo raiz. Só entra o recurso que o PR criou ou alterou. A trava definitiva é a política de tags da conta de nuvem (ADR-FINOPS-001); esta regra avisa antes.
+
+**Correção:** Defina as tags no provider, uma vez, e todo recurso as herda: `provider "aws" { default_tags { tags = { CostCenter = "...", Owner = "..." } } }`. Ou declare `tags = { CostCenter = "...", Owner = "..." }` no recurso (ou em `locals` e `merge`). O valor de CostCenter vem do cadastro de centros de custo da empresa.
+
 ## GOV-ADR-001 — Decisão estrutural sem ADR no mesmo PR
 - Severidade: `MAJOR` · modo: `warn` · ADR: `ADR-GOV-004`
 - Escopo: `**/pom.xml`, `**/build.gradle`, `**/build.gradle.kts`, `**/settings.gradle`, `**/settings.gradle.kts`, `**/docker-compose*.yml`, `**/docker-compose*.yaml`, `**/compose*.yml`, `**/compose*.yaml`

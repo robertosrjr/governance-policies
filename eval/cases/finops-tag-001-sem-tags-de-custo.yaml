@@ -1,0 +1,25 @@
+id: finops-tag-001-sem-tags-de-custo
+description: Instância sem nenhuma tag e bucket sem Owner, num provider sem default_tags.
+tags:
+- finops
+files:
+  infra/main.tf: |
+    provider "aws" {
+      region = "sa-east-1"
+    }
+
+    resource "aws_instance" "api" {
+      ami           = "ami-0abcdef1234567890"
+      instance_type = "m6i.large"
+    }
+
+    resource "aws_s3_bucket" "extratos" {
+      bucket = "banco-extratos"
+
+      tags = {
+        CostCenter = "4410"
+        Name       = "extratos"
+      }
+    }
+expect:
+  FINOPS-TAG-001: true

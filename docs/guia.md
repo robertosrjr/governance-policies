@@ -2,8 +2,8 @@
 
 Este guia explica o que o repositório `governance-policies` faz, quais regras ele aplica,
 como usar no dia a dia, como ligar em um repositório novo e as boas práticas para quem
-escreve código e para quem mantém as regras. Versão descrita: **v1.9.0** (motor 1.9.0,
-bundle 1.5.0, `result.json` 1.3).
+escreve código e para quem mantém as regras. Versão descrita: **v1.10.0** (motor 1.10.0,
+bundle 1.6.0, `result.json` 1.3).
 
 Documentos relacionados:
 
@@ -94,7 +94,7 @@ Um arquivo YAML por regra (`ARCH-HEX-001.yaml`, `FIN-MONEY-001.yaml`…). É a *
 
 Um Markdown por decisão (`ADR-<ÁREA>-<NNN>-tema.md`): contexto, decisão, como é verificada,
 alternativas descartadas e consequências. Toda política aponta para um ADR, e o `validate`
-falha se ele não existir. São 27 ADRs em dois grupos: os da **plataforma** (`ADR-GOV-*`:
+falha se ele não existir. São 28 ADRs em dois grupos: os da **plataforma** (`ADR-GOV-*`:
 modelo, provedor de IA, Jev, operação em instituição financeira, release, painel,
 classificação...) e os das **regras para o código** (arquitetura, dinheiro, LGPD,
 segurança, dados, contratos, cadeia de suprimentos, IA, qualidade). O índice, com uma
@@ -148,6 +148,8 @@ Os módulos Python em `engine/governance/`, na ordem em que um PR passa por eles
 | `deterministic.py` | Camada T0: regex, caminho, arquivo acompanhante e contrato. É a que bloqueia. |
 | `validators.py` | Dígito verificador de CPF e CNPJ e Luhn de cartão, para as regras com `validator`. |
 | `contracts.py` | Quebras de compatibilidade entre a base e o PR em contratos OpenAPI e Avro. |
+| `structured.py`, `hcl.py` | Regras que leem a estrutura do arquivo: tags de custo no Terraform (com um leitor mínimo de HCL) e `requests`/`limits` no Kubernetes. |
+| `usage.py` | Consumo de IA (tokens e custo) de cada avaliação, para o `stats.ai_usage` do resultado. |
 | `redact.py` | Tira segredos, CPF, CNPJ, cartão e e-mail do código antes de enviá-lo à IA. |
 | `llm.py` | Camada T1 generativa: chama o revisor, filtra a resposta e traduz falhas do provedor em mensagens claras. |
 | `jev.py` | Camada T1 por julgamento tipado: o Jev responde a probabilidade de "sim" para cada linha marcada. |
@@ -217,6 +219,8 @@ avaliado). Skills orientam; só `policies/` decide
 | `test_financial_rules.py` | Validadores, remoção de dado pessoal e cada regra das políticas financeiras. |
 | `test_architecture_rules.py` | Tipo de mudança no diff, comparação de contratos, arquivo acompanhante. |
 | `test_classification.py` | Classes, endurecimento, IA desligada por classe. |
+| `test_structured.py` | Leitor de HCL, tags de custo, `requests`/`limits`, arquivos vizinhos como contexto. |
+| `test_usage.py` | Consumo de IA nos provedores, no resultado e no painel. |
 | `test_evidence.py`, `test_dashboard.py` | Gate de deploy e painel de conformidade. |
 | `test_waivers_cli_and_bundle.py` | Exceções, comandos de ponta a ponta, eval, exports, gitleaks e submódulos. |
 
@@ -246,7 +250,7 @@ avaliado). Skills orientam; só `policies/` decide
 1. O PR é aberto no repositório-alvo, recebe um push ou é reaberto.
 2. O `.github/workflows/governance.yml` do repositório-alvo chama o workflow central
    [governance-required.yml](../.github/workflows/governance-required.yml) numa **tag**
-   deste repositório (ex.: `v1.9.0`) e repassa só as chaves do projeto, OpenRouter e
+   deste repositório (ex.: `v1.10.0`) e repassa só as chaves do projeto, OpenRouter e
    TypeSafe (nunca `secrets: inherit`, que entrega todos os segredos).
 3. O workflow central:
    1. baixa o código do PR em `target/`, como dado;
@@ -274,7 +278,8 @@ arquivos alterados (+ tipo de mudança e conteúdo na base)
    ├─ 1. Classe do repositório: IA permitida? quais políticas endurecem?
    ├─ 2. Seleção: só entram as políticas cujo `scope` casa com algum arquivo alterado
    ├─ 3. T0 determinístico: regex nas linhas ADICIONADAS (com validador de CPF/CNPJ/cartão),
-   │            caminho alterado, arquivo acompanhante exigido, quebra de contrato
+   │            caminho alterado, arquivo acompanhante exigido, quebra de contrato,
+   │            estrutura do arquivo (tags de custo, requests/limits)
    ├─ 4. T1 IA (se a classe permitir): conteúdo sem segredos nem dado pessoal;
    │            revisor generativo aponta achados; Jev julga as linhas marcadas;
    │            achados repetidos de T0 são descartados, nada de T0 é removido
@@ -331,7 +336,7 @@ Um achado bloqueia o merge quando **tudo** isto é verdade:
 
 ## 3. As regras
 
-São 34 políticas. A lista completa e sempre atualizada, com escopo, verificação e
+São 37 políticas. A lista completa e sempre atualizada, com escopo, verificação e
 correção de cada uma, é gerada em
 [.claude/rules/governance-policies.md](../.claude/rules/governance-policies.md). O resumo:
 
@@ -356,6 +361,7 @@ Na classe `restrito`, também bloqueiam SEC-PAN-001, LGPD-DATA-001 e SEC-CRYPTO-
 | Segurança e dados | SEC-CRYPTO-001 (criptografia fraca, TLS antigo), SEC-PAN-001 (número de cartão), LGPD-DATA-001 (CPF real), SEC-CONFIG-001 (configuração Spring insegura) |
 | Banco de dados e nuvem | DATA-MIG-001 (migração editada), DATA-MIG-002 (DDL destrutivo), DATA-RES-001 (região fora do Brasil) |
 | Arquitetura e contratos | ARCH-TIME-001 (relógio da máquina no domínio), API-CONTRACT-001 (quebra de OpenAPI), EVT-SCHEMA-001 (quebra de Avro), GOV-ADR-001 (decisão estrutural sem ADR) |
+| FinOps | FINOPS-TAG-001 (recurso Terraform sem tags de custo), FINOPS-K8S-001 (contêiner sem `requests`/`limits`), FINOPS-SHUTDOWN-001 (encerramento imediato do Spring) |
 | Cadeia de suprimentos | SUP-DEP-001 (SNAPSHOT, versão flutuante), SUP-IMG-001 (imagem sem digest, root, `curl \| sh`) |
 | IA nas aplicações | AI-GW-001 (LLM fora do gateway), AI-MODEL-001 (modelo não fixado), AI-HUMAN-001 (IA decide sozinha sobre cliente, Jev), AI-FAIR-001 (dado sensível em modelo, Jev), AI-INV-001 (uso de IA sem inventário) |
 | Revisão e qualidade | LLM-INJ-001 (texto dirigido a IA), GOV-SELF-001 (mudança em CI ou em configuração de agentes), QUAL-CODE-001 (qualidade, revisor generativo) |

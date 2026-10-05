@@ -48,6 +48,12 @@ dias.
 `compliance-dashboard.yml` roda toda segunda-feira sobre `dashboard/repos.txt`, com um
 token só de leitura (`DASHBOARD_TOKEN`), e publica o painel como artefato.
 
+### Adendo — 2026-10-05: custo de IA
+
+O painel passou a somar o consumo de IA registrado em `stats.ai_usage` de cada avaliação:
+total na janela, média por PR e por modelo
+([ADR-FINOPS-002](ADR-FINOPS-002-custo-da-esteira.md)).
+
 ## Alternativas rejeitadas
 
 | Alternativa | Motivo |

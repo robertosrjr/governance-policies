@@ -106,6 +106,22 @@
         },
         {
           "additionalProperties": false,
+          "required": ["type", "check", "params", "message"],
+          "properties": {
+            "type": {"const": "structured"},
+            "check": {
+              "description": "Verificação nomeada que lê a estrutura do arquivo (structured.py)",
+              "enum": ["terraform_tags", "kubernetes_resources"]
+            },
+            "params": {
+              "description": "Parâmetros da verificação, definidos por quem responde pela regra",
+              "type": "object"
+            },
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "additionalProperties": false,
           "required": ["type", "format", "message"],
           "properties": {
             "type": {"const": "contract"},

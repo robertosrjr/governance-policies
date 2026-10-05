@@ -3,7 +3,7 @@
 Este manual liga a governança em um repositório de aplicação, do zero até o primeiro PR
 bloqueado e o primeiro deploy liberado pelo gate. É o roteiro que usamos para ligar a PoC
 `robertosrjr/virtualthreads` no modo **conta pessoal** (sem organização no GitHub), com os
-erros que encontramos no caminho. Versão descrita: **v1.9.0**.
+erros que encontramos no caminho. Versão descrita: **v1.10.0**.
 
 Para entender o que cada peça faz, veja o [guia](guia.md). Para criar ou mudar regras, o
 [manual do ciclo de vida de uma regra](manual-ciclo-de-vida-de-uma-regra.md). Este manual
@@ -41,7 +41,7 @@ Os nomes usados neste manual:
 | Repositório central | `robertosrjr/governance-policies` |
 | Repositório da aplicação | `robertosrjr/virtualthreads` |
 | Classe da aplicação | `interno` (IA permitida) |
-| Versão do central em uso | `v1.9.0` |
+| Versão do central em uso | `v1.10.0` |
 | Check exigido no PR | `governance / governance` |
 
 > Os comandos são para PowerShell no Windows. Em bash, troque `$env:PYTHONPATH = "engine"`
@@ -63,7 +63,7 @@ python -m governance export --check
 python -m governance eval
 ```
 
-Os quatro precisam terminar sem erro. O `validate` diz `Bundle 1.5.0 válido: 34
+Os quatro precisam terminar sem erro. O `validate` diz `Bundle 1.6.0 válido: 37
 políticas` e o último, `Eval: APROVADO`.
 
 > **`No module named governance`**: o `PYTHONPATH` não está definido nesta janela do
@@ -87,13 +87,13 @@ consegue chamar o workflow.
 A aplicação não usa a `main` do central. Ela usa uma **tag**, que é uma versão fixa.
 
 ```powershell
-git tag v1.9.0
-git push origin v1.9.0
+git tag v1.10.0
+git push origin v1.10.0
 ```
 
-Confira: `git ls-remote --tags origin` deve listar `refs/tags/v1.9.0`.
+Confira: `git ls-remote --tags origin` deve listar `refs/tags/v1.10.0`.
 
-> O `git push` normal **não** envia tags. Sem o `git push origin v1.9.0`, a tag existe só
+> O `git push` normal **não** envia tags. Sem o `git push origin v1.10.0`, a tag existe só
 > na sua máquina e o PR da aplicação falha.
 >
 > **Não use as tags v1.4.0 a v1.7.0**: estão defeituosas (Erros que encontramos).
@@ -161,15 +161,15 @@ on:
 
 jobs:
   governance:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.9.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-required.yml@v1.10.0
     with:
-      governance_ref: v1.9.0      # tem que ser igual à tag do 'uses:'
+      governance_ref: v1.10.0      # tem que ser igual à tag do 'uses:'
     secrets:                      # só as chaves do projeto (nunca 'secrets: inherit')
       OPENROUTER_API_KEY: ${{ secrets.VIRTUALTHREADS_OR_API_KEY }}
       TYPESAFE_API_KEY: ${{ secrets.VIRTUALTHREADS_JEV_API_KEY }}
 ```
 
-As duas tags (`@v1.9.0` e `governance_ref: v1.9.0`) **têm que ser iguais**.
+As duas tags (`@v1.10.0` e `governance_ref: v1.10.0`) **têm que ser iguais**.
 
 À esquerda do `:` fica o nome que o workflow central espera (`OPENROUTER_API_KEY`,
 `TYPESAFE_API_KEY`); à direita, o nome do segredo na aplicação, que pode ser qualquer um.
@@ -183,9 +183,9 @@ deploy e faça o deploy depender dele com `needs:`):
 ```yaml
 jobs:
   governance-gate:
-    uses: robertosrjr/governance-policies/.github/workflows/governance-deploy-gate.yml@v1.9.0
+    uses: robertosrjr/governance-policies/.github/workflows/governance-deploy-gate.yml@v1.10.0
     with:
-      governance_ref: v1.9.0
+      governance_ref: v1.10.0
 
   deploy:
     needs: governance-gate

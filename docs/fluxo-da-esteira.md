@@ -127,7 +127,7 @@ sequenceDiagram
     Motor->>Motor: classe do repositório (classification/repositories.yaml):<br/>IA permitida? quais políticas endurecem?
     Motor->>Motor: git diff base...HEAD: arquivos, status,<br/>linhas adicionadas, conteúdo da base
     Motor->>Motor: seleciona políticas pelo scope
-    Motor->>Motor: T0 determinístico: regex (+ CPF/CNPJ/Luhn),<br/>path_changed, requires_companion, contract
+    Motor->>Motor: T0 determinístico: regex (+ CPF/CNPJ/Luhn),<br/>path_changed, requires_companion, contract,<br/>structured (tags de custo, requests/limits)
     opt Há política semântica no escopo e a classe permite IA
         Motor->>Motor: redact: remove segredos, CPF, CNPJ, cartão, e-mail
         Motor->>IA: arquivos do escopo (revisor) ou linhas candidatas (Jev)

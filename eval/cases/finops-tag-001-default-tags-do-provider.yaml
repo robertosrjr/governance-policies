@@ -1,0 +1,46 @@
+id: finops-tag-001-default-tags-do-provider
+description: Tags herdadas do default_tags de um arquivo que o PR não alterou; locals e merge resolvidos; tag por
+  variável não é afirmada; tipo fora da lista é ignorado.
+tags:
+- finops
+files:
+  infra/main.tf: |
+    locals {
+      common_tags = {
+        CostCenter = "4410"
+        Owner      = "pagamentos"
+      }
+    }
+
+    resource "aws_instance" "api" {
+      ami           = "ami-0abcdef1234567890"
+      instance_type = "m6i.large"
+    }
+
+    resource "aws_sqs_queue" "pedidos" {
+      name = "pedidos"
+      tags = merge(local.common_tags, { Name = "pedidos" })
+    }
+
+    resource "aws_sns_topic" "eventos" {
+      name = "eventos"
+      tags = var.tags
+    }
+
+    resource "aws_security_group" "api" {
+      name = "api"
+    }
+context_files:
+  infra/providers.tf: |
+    provider "aws" {
+      region = "sa-east-1"
+
+      default_tags {
+        tags = {
+          CostCenter = "4410"
+          Owner      = "pagamentos"
+        }
+      }
+    }
+expect:
+  FINOPS-TAG-001: false

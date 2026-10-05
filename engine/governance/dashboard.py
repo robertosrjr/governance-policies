@@ -75,6 +75,43 @@ def _readiness(policy, row, since, today, coverage):
     return ("pronta para enforce" if not missing else "coletando dados"), missing
 
 
+def _ai_cost(evaluations):
+    """Consumo de IA da janela (`stats.ai_usage` de cada avaliação, ADR-FINOPS-002).
+
+    Avaliação sem o campo (versão anterior do motor ou classe sem IA) não conta. A média
+    por PR considera só os PRs em que algum provedor informou preço: o Jev informa tokens.
+    """
+    rows, with_ai, priced = {}, 0, 0
+    for result in evaluations:
+        usage_rows = ((result.get("stats") or {}).get("ai_usage") or {}).get("providers") or []
+        if not usage_rows:
+            continue
+        with_ai += 1
+        priced += any(row.get("cost_usd") is not None for row in usage_rows)
+        for row in usage_rows:
+            into = rows.setdefault((row.get("provider"), row.get("model")), {
+                "provider": row.get("provider"), "model": row.get("model"), "calls": 0,
+                "input_tokens": 0, "output_tokens": 0, "cost_usd": None})
+            into["calls"] += row.get("calls") or 0
+            into["input_tokens"] += row.get("input_tokens") or 0
+            into["output_tokens"] += row.get("output_tokens") or 0
+            if row.get("cost_usd") is not None:
+                into["cost_usd"] = (into["cost_usd"] or 0.0) + row["cost_usd"]
+    by_model = [{**row, "cost_usd": None if row["cost_usd"] is None else round(row["cost_usd"], 6)}
+                for _, row in sorted(rows.items(), key=lambda item: str(item[0]))]
+    costs = [row["cost_usd"] for row in by_model if row["cost_usd"] is not None]
+    total = round(sum(costs), 6) if costs else None
+    return {
+        "evaluations_with_ai": with_ai,
+        "calls": sum(row["calls"] for row in by_model),
+        "input_tokens": sum(row["input_tokens"] for row in by_model),
+        "output_tokens": sum(row["output_tokens"] for row in by_model),
+        "cost_usd": total,
+        "cost_per_pr_usd": round(total / priced, 6) if total is not None and priced else None,
+        "by_model": by_model,
+    }
+
+
 def build_metrics(policies, results, false_positives, waivers, *, today, window_days,
                   repositories, policy_since=None, cases=None):
     """`results`: [{"result": result.json, "created_at": iso}]. `false_positives`:
@@ -109,6 +146,7 @@ def build_metrics(policies, results, false_positives, waivers, *, today, window_
     statuses = Counter(r.get("status") for r in evaluations)
     by_class = Counter(((r.get("classification") or {}).get("name") or "sem registro")
                        for r in evaluations)
+    ai_cost = _ai_cost(evaluations)
     error_kinds = Counter(e.get("kind", "?") for r in evaluations for e in r.get("errors") or ())
     blocked_by_error_only = sum(
         1 for r in evaluations if r.get("status") == "BLOCKED" and r.get("errors")
@@ -128,6 +166,7 @@ def build_metrics(policies, results, false_positives, waivers, *, today, window_
             "blocked_by_error_only": blocked_by_error_only,
             "errors_by_kind": dict(error_kinds.most_common()),
             "evaluations_by_class": dict(by_class.most_common()),
+            "ai_cost": ai_cost,
             "ready_for_enforce": [r["id"] for r in rows if r["readiness"] == "pronta para enforce"],
             "high_false_positive": [r["id"] for r in rows if r["readiness"] == "falso positivo alto"],
         },
@@ -145,6 +184,20 @@ def _pct(value):
     return "—" if value is None else f"{value:.0%}"
 
 
+def _usd(value):
+    return "sem preço informado" if value is None else f"US$ {value:.4f}"
+
+
+def _ai_cost_text(ai):
+    if not ai["evaluations_with_ai"]:
+        return "nenhuma avaliação com IA na janela"
+    average = (f" (média {_usd(ai['cost_per_pr_usd'])} por PR)"
+               if ai["cost_per_pr_usd"] is not None else "")
+    return (f"{_usd(ai['cost_usd'])} em {ai['evaluations_with_ai']} PR(s){average} · "
+            f"{ai['calls']} chamadas, {ai['input_tokens']} tokens de entrada e "
+            f"{ai['output_tokens']} de saída (o Jev informa só tokens)")
+
+
 def render_markdown(metrics):
     o = metrics["overview"]
     lines = [
@@ -158,6 +211,7 @@ def render_markdown(metrics):
         f"- Waivers vencendo em até {EXPIRING_DAYS} dias: {len(metrics['waivers']['expiring'])}",
         "- Avaliações por classe de repositório: " + (", ".join(
             f"{k}: {v}" for k, v in o["evaluations_by_class"].items()) or "nenhuma"),
+        "- Custo de IA: " + _ai_cost_text(o["ai_cost"]),
         "", "| Política | Modo | Achados | PRs | Bloqueios | Falso positivo | Prontidão |",
         "|---|---|---|---|---|---|---|",
     ]
@@ -201,7 +255,9 @@ def render_html(metrics):
              ("Bloqueados", o["blocked"], "bad"),
              ("Bloqueados só por erro", o["blocked_by_error_only"], "warn"),
              ("Prontas para enforce", len(o["ready_for_enforce"]), "ok"),
-             ("Waivers vencendo", len(metrics["waivers"]["expiring"]), "warn")]
+             ("Waivers vencendo", len(metrics["waivers"]["expiring"]), "warn"),
+             ("Custo de IA na janela", "—" if o["ai_cost"]["cost_usd"] is None
+              else f"US$ {o['ai_cost']['cost_usd']:.4f}", "")]
     rows = []
     for r in metrics["policies"]:
         missing = "".join(f"<li>{e(m)}</li>" for m in r["missing"])
@@ -221,7 +277,13 @@ def render_html(metrics):
         f"<td>{e(w['expires'])}</td><td class='n {'warn' if w['days_left'] <= EXPIRING_DAYS else ''}'>"
         f"{w['days_left']}</td></tr>" for w in metrics["waivers"]["active"]) \
         or "<tr><td colspan='5' class='muted'>nenhum waiver ativo</td></tr>"
-    by_class = "".join(f"<li>{e(k)}: {v}</li>" for k, v in o["evaluations_by_class"].items())         or "<li>nenhuma</li>"
+    by_class = "".join(f"<li>{e(k)}: {v}</li>" for k, v in o["evaluations_by_class"].items()) \
+        or "<li>nenhuma</li>"
+    by_model = "".join(
+        f"<li>{e(str(m['provider']))} / {e(str(m['model']))}: {m['calls']} chamadas, "
+        f"{m['input_tokens']} tokens de entrada, {m['output_tokens']} de saída, "
+        f"{e(_usd(m['cost_usd']))}</li>" for m in o["ai_cost"]["by_model"]) \
+        or "<li>nenhuma avaliação com IA</li>"
     c = metrics["criteria"]
     return f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
@@ -242,6 +304,7 @@ dias no modo warn, ao menos {c['min_findings']} achados e falso positivo abaixo 
 <section><h2>Saúde da esteira</h2><div class="grid">
 <div class="card">Erros de execução nas avaliações:<ul>{errors}</ul></div>
 <div class="card">Avaliações por classe de repositório (ADR-GOV-009):<ul>{by_class}</ul></div>
+<div class="card">Custo de IA por modelo (ADR-FINOPS-002):<ul>{by_model}</ul></div>
 </div></section>
 <section><h2>Waivers ativos</h2><div class="table"><table><thead><tr><th>Waiver</th>
 <th>Política</th><th>Repositório</th><th>Vence em</th><th>Dias</th></tr></thead>

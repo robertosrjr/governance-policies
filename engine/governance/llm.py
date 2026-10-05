@@ -22,6 +22,7 @@ from pathlib import Path
 from .model import Finding, GovernanceError, RunError
 from .policy import in_scope
 from .redact import redact
+from .usage import UsageLog
 
 logger = logging.getLogger("governance.llm")
 
@@ -158,6 +159,7 @@ class GeminiProvider:
         self._client = genai.Client(
             api_key=api_key, http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS))
         self._config = config
+        self.usage = UsageLog()
 
     def review(self, system_prompt, user_content, schema):
         config = self._types.GenerateContentConfig(
@@ -170,6 +172,10 @@ class GeminiProvider:
         def call():
             response = self._client.models.generate_content(
                 model=self._config.model, contents=user_content, config=config)
+            metadata = getattr(response, "usage_metadata", None)
+            self.usage.record(self._config.provider, self._config.model,
+                              input_tokens=getattr(metadata, "prompt_token_count", 0),
+                              output_tokens=getattr(metadata, "candidates_token_count", 0))
             return json.loads(response.text)
 
         return _with_retries(self._config, call)
@@ -215,6 +221,7 @@ class OpenRouterProvider:
             "Content-Type": "application/json",
             "X-OpenRouter-Title": "governance-policies",
         }
+        self.usage = UsageLog()
 
     def _payload(self, system_prompt, user_content, schema):
         return {
@@ -249,6 +256,12 @@ class OpenRouterProvider:
 
         def call():
             data = self._post(payload)
+            # Registra antes de validar: resposta ruim também foi cobrada.
+            usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+            self.usage.record(self._config.provider, self._config.model,
+                              input_tokens=usage.get("prompt_tokens"),
+                              output_tokens=usage.get("completion_tokens"),
+                              cost_usd=usage.get("cost"))
             # Falha durante a geração chega como HTTP 200 com `error` no corpo.
             error = data.get("error")
             if error:

@@ -10,6 +10,7 @@ from .jev import run_jev
 from .llm import LlmConfig, api_key_env, run_llm
 from .model import RunError
 from .policy import select_policies
+from .usage import summarize
 from .verdict import build_result
 from .waivers import apply_waivers
 
@@ -104,6 +105,8 @@ def evaluate(files, *, policies, waivers, provider, bundle, subject, governance_
             "jev": ({"provider": bundle.jev.provider, "model": bundle.jev.model}
                     if jev_provider is not None and bundle.jev else None),
         },
-        stats={"files_changed": len(files), "llm_findings_discarded": discarded},
+        stats={"files_changed": sum(1 for f in files if f.status != "context"),
+               "llm_findings_discarded": discarded,
+               "ai_usage": summarize(provider, jev_provider)},
         classification=classification.as_dict(raised) if classification else None,
     )

@@ -23,6 +23,7 @@ from .llm import (REQUEST_TIMEOUT_MS, ProviderError, _error_message, _with_retri
 from .model import Finding, GovernanceError, RunError
 from .policy import in_scope
 from .redact import redact
+from .usage import UsageLog
 
 logger = logging.getLogger("governance.jev")
 
@@ -36,6 +37,7 @@ class JevProvider:
         self._config = config
         self._headers = {"Authorization": f"Bearer {api_key}",
                          "Content-Type": "application/json"}
+        self.usage = UsageLog()
 
     def _post(self, payload):
         import urllib.error
@@ -57,7 +59,12 @@ class JevProvider:
                                  for qid, text in questions.items()}}
 
         def call():
-            answers = self._post(payload).get("answers") or {}
+            data = self._post(payload)
+            usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+            self.usage.record(self._config.provider, self._config.model,
+                              input_tokens=usage.get("input_tokens"),
+                              output_tokens=usage.get("output_tokens"))
+            answers = data.get("answers") or {}
             result = {}
             for qid in questions:
                 value = (answers.get(qid) or {}).get("noul")
